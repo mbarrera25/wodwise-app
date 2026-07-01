@@ -1,0 +1,186 @@
+<div class="dashboard-container">
+  <!-- Saludo -->
+  <div class="welcome-header">
+    <div class="user-info">
+      <h1>Hola, {{ profile()?.name || 'Atleta' }} 👋</h1>
+      <p>¡Listo para otra jornada de entrenamiento!</p>
+    </div>
+    <p-button icon="pi pi-trash" styleClass="reset-btn" (click)="resetAllData()" title="Restablecer Datos"></p-button>
+  </div>
+
+  <!-- Quick Advice / Coach Message -->
+  @if (coachAdvice()) {
+    <div class="coach-widget">
+      <div class="coach-avatar">
+        <i class="pi pi-bolt"></i>
+      </div>
+      <div class="coach-body">
+        <span class="coach-title">Consejo del Coach</span>
+        <p class="coach-text">"{{ coachAdvice() }}"</p>
+      </div>
+    </div>
+  } @else {
+    <div class="coach-widget intro">
+      <div class="coach-avatar">
+        <i class="pi pi-info-circle"></i>
+      </div>
+      <div class="coach-body">
+        <span class="coach-title">Comienza hoy</span>
+        <p class="coach-text">Registra tu primer check-in diario y un entrenamiento para obtener consejos personalizados.</p>
+      </div>
+    </div>
+  }
+
+  <!-- Action Grid (Accesos Rápidos) -->
+  <div class="action-grid">
+    <p-button 
+      routerLink="/check-in" 
+      [styleClass]="hasCheckInToday() ? 'action-btn secondary' : 'action-btn primary'"
+      [icon]="hasCheckInToday() ? 'pi pi-check' : 'pi pi-calendar-plus'" 
+      [label]="hasCheckInToday() ? 'Check-In Listo' : 'Registrar Check-In'"
+    ></p-button>
+    
+    <p-button 
+      routerLink="/workouts/new" 
+      styleClass="action-btn primary"
+      icon="pi pi-plus" 
+      label="Registrar WOD"
+    ></p-button>
+  </div>
+
+  <!-- Weekly Load & Section Summary Card -->
+  <div class="section-title">Progreso Semanal</div>
+  <div class="weekly-card">
+    <div class="weekly-load-header">
+      <div class="load-score-box">
+        <span class="score-num">{{ weeklyLoadScore() }}</span>
+        <span class="score-lbl">Puntos de Carga</span>
+      </div>
+      <div class="load-status">
+        <span class="status-title">Estado de Carga</span>
+        <span class="status-val">{{ weeklyLoadLabel() }}</span>
+      </div>
+    </div>
+
+    <!-- Description Explanator -->
+    <div class="weekly-load-description">
+      @if (weeklyLoadScore() < 500) {
+        <p>💡 <strong>Carga Baja:</strong> Enfoque en recuperación activa, movilidad y descanso. Ideal para disipar fatiga y regenerar.</p>
+      } @else if (weeklyLoadScore() >= 500 && weeklyLoadScore() <= 1500) {
+        <p>🚀 <strong>Carga Óptima:</strong> Estímulo ideal de entrenamiento para progresar constantemente sin sobreentrenar.</p>
+      } @else {
+        <p>⚠️ <strong>Carga Alta:</strong> Riesgo de fatiga severa o sobrecarga. Procura dormir más horas e hidratarte muy bien hoy.</p>
+      }
+    </div>
+    
+    <div class="weekly-grid">
+      <div class="weekly-stat">
+        <span class="stat-num">{{ workoutsThisWeek().length }}</span>
+        <span class="stat-lbl">Sesiones</span>
+      </div>
+      <div class="weekly-stat">
+        <span class="stat-num">{{ wodMetconCount() }}</span>
+        <span class="stat-lbl">WODs/Metcons</span>
+      </div>
+      <div class="weekly-stat">
+        <span class="stat-num">{{ strengthWeightliftingCount() }}</span>
+        <span class="stat-lbl">Fuerza/Lifts</span>
+      </div>
+    </div>
+  </div>
+
+  <!-- Daily Summary Card -->
+  <div class="section-title">Tu Estado Hoy</div>
+  <div class="status-card">
+    @if (latestCheckIn()) {
+      <div class="status-date">Último Check-In: {{ latestCheckIn()?.date | date:'dd/MM/yyyy' }}</div>
+      <div class="metrics-row">
+        <div class="metric">
+          <span class="metric-val">{{ latestCheckIn()?.sleepHours }}h</span>
+          <span class="metric-lbl">Sueño</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ latestCheckIn()?.energyLevel }}/10</span>
+          <span class="metric-lbl">Energía</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ latestCheckIn()?.sorenessLevel }}/10</span>
+          <span class="metric-lbl">Dolor</span>
+        </div>
+        <div class="metric">
+          <span class="metric-val">{{ latestCheckIn()?.stressLevel }}/10</span>
+          <span class="metric-lbl">Estrés</span>
+        </div>
+      </div>
+      @if (latestCheckIn()?.notes) {
+        <p class="notes"><strong>Notas:</strong> "{{ latestCheckIn()?.notes }}"</p>
+      }
+    } @else {
+      <div class="empty-state">
+        <i class="pi pi-calendar-times"></i>
+        <p>Aún no has registrado ningún check-in. Es importante medir tu recuperación.</p>
+        <a routerLink="/check-in" class="link-action">Registrar ahora</a>
+      </div>
+    }
+  </div>
+
+  <!-- Recent Personal Records (PRs) -->
+  <div class="section-title">Marcas Personales Recientes (PRs)</div>
+  <div class="prs-container">
+    @for (pr of recentPRs(); track pr.exerciseName + pr.metricType) {
+      <div class="pr-card">
+        <div class="pr-info">
+          <i class="pi pi-star-fill pr-star-icon"></i>
+          <div class="pr-details">
+            <span class="pr-exercise">{{ pr.exerciseName }}</span>
+            <span class="pr-workout-ref">en {{ pr.workoutName }}</span>
+          </div>
+        </div>
+        <div class="pr-record-box">
+          <span class="pr-value">{{ pr.value }}</span>
+          <span class="pr-date">{{ pr.date | date:'dd MMM' }}</span>
+        </div>
+      </div>
+    } @empty {
+      <div class="empty-state prs">
+        <i class="pi pi-trophy"></i>
+        <p>No has roto marcas en los últimos 7 días. ¡Vence tus límites en la próxima sesión!</p>
+      </div>
+    }
+  </div>
+
+  <!-- Workouts of the Week -->
+  <div class="section-header">
+    <span class="section-title">Entrenamientos de la Semana</span>
+    <span class="badge">{{ workoutsThisWeek().length }}</span>
+  </div>
+
+  <div class="workout-list">
+    @for (workout of workoutsThisWeek(); track workout.id) {
+      <div class="workout-card">
+        <div class="workout-info">
+          <div class="workout-type-icon">
+            <i class="pi pi-play-circle"></i>
+          </div>
+          <div class="workout-details">
+            <span class="workout-name">{{ workout.name || 'WOD Sin Nombre' }}</span>
+            <div class="workout-meta">
+              <span>{{ workoutTypeLabels[workout.type] }}</span>
+              @if (workout.durationMinutes) {
+                <span>• {{ workout.durationMinutes }} min</span>
+              }
+              <span>• Dif: {{ workout.perceivedDifficulty }}/10</span>
+            </div>
+          </div>
+        </div>
+        <span class="workout-date">{{ workout.date | date:'dd MMM' }}</span>
+      </div>
+    } @empty {
+      <div class="empty-state">
+        <i class="pi pi-percentage"></i>
+        <p>No hay entrenamientos registrados esta semana. ¡Suda la camiseta hoy!</p>
+        <a routerLink="/workouts/new" class="link-action">Añadir entrenamiento</a>
+      </div>
+    }
+  </div>
+</div>

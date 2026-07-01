@@ -1,0 +1,106 @@
+@if (evaluation()) {
+  <div class="evaluation-container">
+    <div class="page-header">
+      <h1>Evaluación del Coach</h1>
+    </div>
+    
+    <p class="subtitle">Análisis basado en tu entrenamiento "{{ latestWorkout()?.name }}" y tu nivel de recuperación.</p>
+
+    <!-- Summary Cards -->
+    <div class="eval-grid">
+      <!-- Carga -->
+      <div class="eval-card" [class]="evaluation()!.trainingLoad">
+        <span class="card-title">Carga de Entrenamiento</span>
+        <span class="card-value">{{ getLoadLabel(evaluation()!.trainingLoad) }}</span>
+      </div>
+
+      <!-- Recuperación -->
+      <div class="eval-card" [class]="evaluation()!.recoveryStatus">
+        <span class="card-title">Estado de Recuperación</span>
+        <span class="card-value">{{ getRecoveryLabel(evaluation()!.recoveryStatus) }}</span>
+      </div>
+
+      <!-- Riesgo de Fatiga -->
+      <div class="eval-card" [class]="evaluation()!.fatigueRisk">
+        <span class="card-title">Riesgo de Fatiga</span>
+        <span class="card-value">{{ getFatigueLabel(evaluation()!.fatigueRisk) }}</span>
+      </div>
+    </div>
+
+    <!-- Sections Summary breakdown -->
+    @if (workoutSummary()) {
+      <div class="section-container">
+        <div class="section-title">Desglose del Entrenamiento</div>
+        <div class="summary-card">
+          <ul class="sections-summary-list">
+            @for (summary of workoutSummary()?.sectionSummaries; track summary.type + summary.summaryText) {
+              <li>
+                <span class="section-badge">{{ summary.label }}</span>
+                <span class="section-desc">{{ summary.summaryText }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+    }
+
+    <!-- Highlights -->
+    <div class="section-container">
+      <div class="section-title">Puntos Clave de la Sesión</div>
+      <div class="highlights-card">
+        <ul class="highlights-list">
+          @for (highlight of evaluation()?.highlights; track highlight) {
+            <li>
+              <i class="pi pi-angle-double-right icon"></i>
+              <span>{{ highlight }}</span>
+            </li>
+          }
+        </ul>
+      </div>
+    </div>
+
+    <!-- Recommendations -->
+    <div class="section-container">
+      <div class="section-title">Consejos y Recomendaciones del Coach</div>
+      <div class="coach-advice-card">
+        <div class="coach-avatar">
+          <i class="pi pi-bolt"></i>
+        </div>
+        <div class="advice-content">
+          <ul class="recommendations-list">
+            @for (rec of evaluation()?.recommendations; track rec) {
+              <li>
+                <span>{{ rec }}</span>
+              </li>
+            }
+          </ul>
+        </div>
+      </div>
+    </div>
+
+    <!-- Nutrition Advice Box -->
+    @if (nutritionSuggestion()) {
+      <div class="section-container">
+        <div class="section-title">Sugerencia Nutricional Post-Entrenamiento</div>
+        <div class="nutrition-card">
+          <div class="nutrition-icon">
+            <i class="pi pi-apple"></i>
+          </div>
+          <div class="nutrition-content">
+            <p>{{ nutritionSuggestion() }}</p>
+          </div>
+        </div>
+      </div>
+    }
+
+    <!-- Done Button -->
+    <div class="actions">
+      <p-button 
+        routerLink="/dashboard" 
+        label="Entendido, volver al Inicio" 
+        icon="pi pi-home" 
+        styleClass="done-btn"
+      ></p-button>
+    </div>
+  </div>
+}

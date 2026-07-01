@@ -1,0 +1,57 @@
+.bottom-nav {
+  position: fixed;
+  bottom: 0;
+  left: 0;
+  right: 0;
+  height: 64px;
+  background-color: var(--app-surface);
+  border-top: 1px solid var(--app-border);
+  display: flex;
+  justify-content: space-around;
+  align-items: center;
+  z-index: 100;
+  box-shadow: 0 -4px 6px -1px rgb(0 0 0 / 0.03);
+}
+
+.nav-item {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+  height: 100%;
+  text-decoration: none;
+  color: var(--app-text-muted);
+  gap: 4px;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: color 0.2s ease;
+
+  &.active {
+    color: var(--app-primary);
+
+    .nav-icon {
+      color: var(--app-primary);
+      transform: scale(1.05);
+    }
+    
+    .nav-label {
+      font-weight: 600;
+    }
+  }
+}
+
+.nav-icon {
+  font-size: 1.2rem;
+  transition: transform 0.2s ease, color 0.2s ease;
+
+  &.highlight {
+    font-size: 1.4rem;
+    color: var(--app-primary);
+  }
+}
+
+.nav-label {
+  font-size: 0.65rem;
+  font-weight: 500;
+}

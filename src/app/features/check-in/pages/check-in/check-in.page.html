@@ -1,0 +1,133 @@
+<div class="checkin-container">
+  <div class="page-header">
+    <p-button icon="pi pi-chevron-left" styleClass="back-btn" (click)="cancel()"></p-button>
+    <h1>Check-In Diario</h1>
+  </div>
+  
+  <p class="subtitle">Registra cómo te sientes hoy para evaluar tu recuperación.</p>
+
+  <form [formGroup]="checkInForm" (ngSubmit)="onSubmit()" class="form-card">
+    
+    <!-- Sleep Hours -->
+    <div class="field">
+      <label for="sleepHours">Horas de Sueño *</label>
+      <div class="input-helper">¿Cuántas horas dormiste anoche?</div>
+      <p-inputnumber 
+        id="sleepHours" 
+        formControlName="sleepHours" 
+        [min]="0" 
+        [max]="14"
+        [showButtons]="true"
+        buttonLayout="horizontal"
+        decrementButtonClass="p-button-secondary"
+        incrementButtonClass="p-button-secondary"
+        incrementButtonIcon="pi pi-plus"
+        decrementButtonIcon="pi pi-minus"
+        class="w-full"
+      ></p-inputnumber>
+      @if (checkInForm.get('sleepHours')?.invalid && checkInForm.get('sleepHours')?.touched) {
+        <small class="error-msg">Debe estar entre 0 y 14 horas.</small>
+      }
+    </div>
+
+    <!-- Energy Level -->
+    <div class="field">
+      <label for="energyLevel">Nivel de Energía * (1 al 10)</label>
+      <div class="input-helper">1 = Agotado, 10 = Enérgico y vital</div>
+      <p-select 
+        id="energyLevel" 
+        [options]="levelOptions" 
+        formControlName="energyLevel" 
+        optionLabel="label" 
+        optionValue="value"
+        class="w-full"
+      ></p-select>
+    </div>
+
+    <!-- Soreness Level -->
+    <div class="field">
+      <label for="sorenessLevel">Dolor Muscular * (1 al 10)</label>
+      <div class="input-helper">1 = Sin dolor, 10 = Dolor extremo / Agujetas severas</div>
+      <p-select 
+        id="sorenessLevel" 
+        [options]="levelOptions" 
+        formControlName="sorenessLevel" 
+        optionLabel="label" 
+        optionValue="value"
+        class="w-full"
+      ></p-select>
+    </div>
+
+    <!-- Stress Level -->
+    <div class="field">
+      <label for="stressLevel">Nivel de Estrés * (1 al 10)</label>
+      <div class="input-helper">1 = Muy relajado, 10 = Estrés insoportable</div>
+      <p-select 
+        id="stressLevel" 
+        [options]="levelOptions" 
+        formControlName="stressLevel" 
+        optionLabel="label" 
+        optionValue="value"
+        class="w-full"
+      ></p-select>
+    </div>
+
+    <!-- Hunger Level -->
+    <div class="field">
+      <label for="hungerLevel">Nivel de Hambre (1 al 10)</label>
+      <div class="input-helper">1 = Sin apetito, 10 = Mucha hambre</div>
+      <p-select 
+        id="hungerLevel" 
+        [options]="levelOptions" 
+        formControlName="hungerLevel" 
+        optionLabel="label" 
+        optionValue="value"
+        class="w-full"
+      ></p-select>
+    </div>
+
+    <!-- Mood -->
+    <div class="field">
+      <label for="mood">Estado de Ánimo</label>
+      <p-select 
+        id="mood" 
+        [options]="moodOptions" 
+        formControlName="mood" 
+        optionLabel="label" 
+        optionValue="value"
+        class="w-full"
+      ></p-select>
+    </div>
+
+    <!-- Notes -->
+    <div class="field">
+      <label for="notes">Notas / Comentarios</label>
+      <textarea 
+        id="notes" 
+        pTextarea 
+        formControlName="notes" 
+        rows="3" 
+        placeholder="¿Algo notable sobre tu día, dolor específico o estado físico?"
+        class="w-full"
+      ></textarea>
+    </div>
+
+    <!-- Buttons -->
+    <div class="form-actions">
+      <p-button 
+        type="button" 
+        label="Cancelar" 
+        styleClass="cancel-btn" 
+        (click)="cancel()"
+      ></p-button>
+      <p-button 
+        type="submit" 
+        label="Guardar Check-In" 
+        icon="pi pi-check" 
+        [disabled]="checkInForm.invalid"
+        styleClass="submit-btn"
+      ></p-button>
+    </div>
+
+  </form>
+</div>

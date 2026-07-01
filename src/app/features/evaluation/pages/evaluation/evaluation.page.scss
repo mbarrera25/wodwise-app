@@ -1,0 +1,269 @@
+.evaluation-container {
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.page-header {
+  margin-top: 8px;
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+  line-height: 1.4;
+}
+
+.eval-grid {
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+}
+
+.eval-card {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  padding: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  box-shadow: var(--app-shadow);
+  border-left: 5px solid var(--app-border);
+
+  .card-title {
+    font-size: 0.75rem;
+    font-weight: 700;
+    color: var(--app-text-muted);
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+  }
+
+  .card-value {
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--app-text);
+  }
+
+  /* Color mappings */
+  &.low {
+    border-left-color: #3b82f6; // blue
+    background: linear-gradient(90deg, #eff6ff 0%, var(--app-surface) 100%);
+  }
+  &.medium {
+    border-left-color: #10b981; // green
+    background: linear-gradient(90deg, #ecfdf5 0%, var(--app-surface) 100%);
+  }
+  &.high {
+    border-left-color: #ef4444; // red
+    background: linear-gradient(90deg, #fef2f2 0%, var(--app-surface) 100%);
+  }
+
+  &.good {
+    border-left-color: #10b981;
+    background: linear-gradient(90deg, #ecfdf5 0%, var(--app-surface) 100%);
+  }
+  &.ok {
+    border-left-color: #e2e8f0;
+  }
+}
+
+.section-container {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.section-title {
+  font-size: 0.95rem;
+  font-weight: 700;
+  color: var(--app-text);
+  letter-spacing: -0.2px;
+}
+
+.highlights-card {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  padding: 16px;
+  box-shadow: var(--app-shadow);
+}
+
+.highlights-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  li {
+    display: flex;
+    align-items: flex-start;
+    gap: 8px;
+    font-size: 0.85rem;
+    line-height: 1.4;
+
+    .icon {
+      color: var(--app-primary);
+      margin-top: 2px;
+    }
+  }
+}
+
+.coach-advice-card {
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  border-radius: var(--app-radius);
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  box-shadow: var(--app-shadow);
+
+  .coach-avatar {
+    background-color: var(--app-primary);
+    color: #ffffff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 6px -1px rgba(37, 99, 235, 0.2);
+  }
+
+  .advice-content {
+    flex: 1;
+  }
+}
+
+.recommendations-list {
+  list-style: disc;
+  padding-left: 16px;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+
+  li {
+    font-size: 0.85rem;
+    line-height: 1.4;
+    font-weight: 600;
+    color: #1e3a8a;
+  }
+}
+
+.actions {
+  margin-top: 8px;
+
+  .done-btn {
+    width: 100%;
+    height: 48px;
+    background-color: var(--app-primary);
+    border: none;
+    color: #ffffff;
+    font-weight: 600;
+    font-size: 0.9rem;
+    border-radius: var(--app-radius-sm);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+
+    &:hover {
+      background-color: var(--app-primary-hover);
+    }
+  }
+}
+
+/* Sections Summary Card */
+.summary-card {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  padding: 16px;
+  box-shadow: var(--app-shadow);
+}
+
+.sections-summary-list {
+  list-style: none;
+  display: flex;
+  flex-direction: column;
+  gap: 12px;
+
+  li {
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    border-bottom: 1px solid #f1f5f9;
+    padding-bottom: 8px;
+
+    &:last-child {
+      border-bottom: none;
+      padding-bottom: 0;
+    }
+  }
+}
+
+.section-badge {
+  font-size: 0.7rem;
+  font-weight: 700;
+  color: var(--app-primary);
+  background-color: #eff6ff;
+  border: 1px solid #bfdbfe;
+  padding: 2px 6px;
+  border-radius: 4px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+  width: fit-content;
+}
+
+.section-desc {
+  font-size: 0.85rem;
+  line-height: 1.4;
+  color: var(--app-text);
+  font-weight: 500;
+}
+
+/* Nutrition Advice Card */
+.nutrition-card {
+  background-color: #f0fdf4; /* Light green emerald bg */
+  border: 1px solid #bbf7d0;
+  border-radius: var(--app-radius);
+  padding: 16px;
+  display: flex;
+  gap: 12px;
+  align-items: flex-start;
+  box-shadow: var(--app-shadow);
+
+  .nutrition-icon {
+    background-color: #10b981; /* Emerald green */
+    color: #ffffff;
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    flex-shrink: 0;
+    font-size: 1.1rem;
+    box-shadow: 0 4px 6px -1px rgba(16, 185, 129, 0.2);
+  }
+
+  .nutrition-content {
+    flex: 1;
+    
+    p {
+      font-size: 0.85rem;
+      line-height: 1.4;
+      font-weight: 600;
+      color: #064e3b;
+    }
+  }
+}
+

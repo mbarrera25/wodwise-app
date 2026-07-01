@@ -1,0 +1,99 @@
+<div class="settings-container">
+  <div class="page-header">
+    <h1>Configuración y Cuenta</h1>
+  </div>
+
+  <p class="subtitle">Gestiona tu perfil, sincroniza tus entrenamientos y configura tu cuenta.</p>
+
+  <!-- Profile Card -->
+  <div class="settings-card profile">
+    @if (isAuthenticated()) {
+      <div class="profile-header">
+        <div class="avatar-icon">
+          <i class="pi pi-user"></i>
+        </div>
+        <div class="profile-info">
+          <h2>{{ profile()?.name || user()?.email }}</h2>
+          <span class="user-email">{{ user()?.email }}</span>
+          <span class="cloud-status-badge synced">
+            <i class="pi pi-cloud"></i> Sesión en la Nube
+          </span>
+        </div>
+      </div>
+      
+      <div class="profile-details-grid">
+        <div class="detail-item">
+          <span class="label">Nivel de Entreno</span>
+          <span class="value">{{ profile()?.trainingLevel | titlecase }}</span>
+        </div>
+        <div class="detail-item">
+          <span class="label">Objetivo Principal</span>
+          <span class="value">{{ profile()?.mainGoal | titlecase }}</span>
+        </div>
+      </div>
+    } @else {
+      <div class="profile-header guest">
+        <div class="avatar-icon guest">
+          <i class="pi pi-user-minus"></i>
+        </div>
+        <div class="profile-info">
+          <h2>Modo Local (Invitado)</h2>
+          <p>Tus datos se guardan solo en este dispositivo. Inicia sesión para guardarlos en la nube y acceder desde cualquier celular.</p>
+        </div>
+      </div>
+
+      <div class="auth-actions">
+        <p-button 
+          routerLink="/login" 
+          label="Iniciar Sesión / Conectarse" 
+          icon="pi pi-sign-in"
+          styleClass="connect-btn"
+        ></p-button>
+      </div>
+    }
+  </div>
+
+  <!-- Sincronización Card -->
+  @if (hasLocalData() && isAuthenticated()) {
+    <div class="settings-card sync-box warning">
+      <div class="sync-icon-bg">
+        <i class="pi pi-cloud-upload"></i>
+      </div>
+      <div class="sync-body">
+        <h3>Datos locales detectados</h3>
+        <p>Tienes entrenamientos, comidas o progresos guardados de forma local antes de iniciar sesión. Sincronízalos para respaldarlos en tu nube.</p>
+        <p-button 
+          [label]="isSyncing() ? 'Sincronizando...' : 'Sincronizar Datos Locales'" 
+          icon="pi pi-refresh"
+          [loading]="isSyncing()"
+          (click)="performSync()"
+          styleClass="sync-btn"
+        ></p-button>
+      </div>
+    </div>
+  }
+
+  @if (syncSuccessMessage()) {
+    <div class="sync-success-banner">
+      <i class="pi pi-check-circle"></i>
+      <span>{{ syncSuccessMessage() }}</span>
+    </div>
+  }
+
+  <!-- Account Actions -->
+  <div class="settings-card actions-box">
+    <h3>Acciones de Cuenta</h3>
+    <div class="actions-list">
+      @if (isAuthenticated()) {
+        <p-button 
+          label="Cerrar Sesión" 
+          icon="pi pi-sign-out" 
+          (click)="handleLogout()" 
+          styleClass="logout-btn"
+        ></p-button>
+      } @else {
+        <p class="action-info">Inicia sesión para poder respaldar y exportar tu historial de atleta.</p>
+      }
+    </div>
+  </div>
+</div>

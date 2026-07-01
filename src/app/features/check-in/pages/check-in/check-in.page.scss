@@ -1,0 +1,179 @@
+.checkin-container {
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+
+.page-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-top: 8px;
+
+  h1 {
+    font-size: 1.35rem;
+    font-weight: 700;
+    letter-spacing: -0.5px;
+  }
+
+  :deep(.back-btn .p-button) {
+    background: transparent !important;
+    border: none !important;
+    color: var(--app-text) !important;
+    width: 32px !important;
+    height: 32px !important;
+    padding: 0 !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    font-size: 1.1rem !important;
+
+    &:hover {
+      background-color: var(--app-border) !important;
+    }
+  }
+}
+
+.subtitle {
+  font-size: 0.85rem;
+  color: var(--app-text-muted);
+  line-height: 1.4;
+  margin-bottom: 8px;
+}
+
+.form-card {
+  background-color: var(--app-surface);
+  border: 1px solid var(--app-border);
+  border-radius: var(--app-radius);
+  padding: 16px;
+  box-shadow: var(--app-shadow);
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.field {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+
+  label {
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--app-text);
+  }
+
+  .input-helper {
+    font-size: 0.7rem;
+    color: var(--app-text-muted);
+    margin-bottom: 4px;
+  }
+}
+
+p-inputnumber,
+p-select,
+p-button,
+input,
+textarea {
+  display: block;
+  width: 100%;
+}
+
+.w-full {
+  width: 100%;
+  
+  :deep(.p-inputnumber) {
+    width: 100%;
+    display: flex;
+  }
+
+  :deep(.p-inputnumber-input) {
+    flex: 1;
+    text-align: center;
+    border: 1px solid #cbd5e1 !important;
+    background-color: #ffffff !important;
+    border-radius: 0;
+    padding: 10px;
+    min-width: 0 !important;
+  }
+
+  :deep(.p-inputnumber-button-dec),
+  :deep(.p-inputnumber-button-inc) {
+    width: 44px;
+    background-color: #f1f5f9;
+    border: 1px solid #cbd5e1;
+    color: var(--app-text);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    cursor: pointer;
+  }
+
+  :deep(.p-inputnumber-button-dec) {
+    border-top-left-radius: var(--app-radius-sm);
+    border-bottom-left-radius: var(--app-radius-sm);
+    order: -1;
+  }
+
+  :deep(.p-inputnumber-button-inc) {
+    border-top-right-radius: var(--app-radius-sm);
+    border-bottom-right-radius: var(--app-radius-sm);
+  }
+}
+
+// Custom text area behavior for notes
+:deep(.p-textarea) {
+  padding: 10px 12px !important;
+  font-family: inherit !important;
+  resize: vertical !important;
+}
+
+.error-msg {
+  color: #ef4444;
+  font-size: 0.75rem;
+  margin-top: 2px;
+}
+
+.form-actions {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 12px;
+  margin-top: 8px;
+
+  :deep(.cancel-btn .p-button) {
+    width: 100% !important;
+    background-color: transparent !important;
+    border: 1px solid var(--app-border) !important;
+    color: var(--app-text-muted) !important;
+    height: 48px !important;
+    font-weight: 600 !important;
+    border-radius: var(--app-radius-sm) !important;
+
+    &:hover {
+      background-color: #f1f5f9 !important;
+    }
+  }
+
+  :deep(.submit-btn .p-button) {
+    width: 100% !important;
+    background-color: var(--app-primary) !important;
+    border: none !important;
+    color: #ffffff !important;
+    height: 48px !important;
+    font-weight: 600 !important;
+    border-radius: var(--app-radius-sm) !important;
+    display: flex !important;
+    align-items: center !important;
+    justify-content: center !important;
+    gap: 8px !important;
+
+    &:disabled {
+      opacity: 0.6 !important;
+      cursor: not-allowed !important;
+    }
+
+    &:hover:not(:disabled) {
+      background-color: var(--app-primary-hover) !important;
+    }
+  }
+}

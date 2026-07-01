@@ -1,0 +1,118 @@
+<div class="onboarding-wrapper">
+  <div class="onboarding-card">
+    <div class="header">
+      <i class="pi pi-bolt brand-icon"></i>
+      <h1>¡Bienvenido a Modo Atleta!</h1>
+      <p>Configura tu perfil básico de entrenamiento para comenzar a medir tu rendimiento.</p>
+    </div>
+
+    <form [formGroup]="profileForm" (ngSubmit)="onSubmit()" class="form-container">
+      
+      <!-- Name -->
+      <div class="field">
+        <label for="name">Nombre / Apodo *</label>
+        <input 
+          id="name" 
+          type="text" 
+          pInputText 
+          formControlName="name" 
+          placeholder="Escribe tu nombre" 
+          class="w-full"
+        />
+        @if (profileForm.get('name')?.invalid && profileForm.get('name')?.touched) {
+          <small class="error-msg">El nombre es obligatorio y debe tener al menos 2 letras.</small>
+        }
+      </div>
+
+      <!-- Age, Height, Weight -->
+      <div class="row">
+        <div class="field col">
+          <label for="age">Edad</label>
+          <p-inputnumber 
+            id="age" 
+            formControlName="age" 
+            placeholder="Años" 
+            [min]="10" 
+            [max]="100"
+            class="w-full"
+          ></p-inputnumber>
+        </div>
+        
+        <div class="field col">
+          <label for="heightCm">Estatura (cm)</label>
+          <p-inputnumber 
+            id="heightCm" 
+            formControlName="heightCm" 
+            placeholder="cm" 
+            [min]="100" 
+            [max]="250"
+            class="w-full"
+          ></p-inputnumber>
+        </div>
+
+        <div class="field col">
+          <label for="weightKg">Peso (kg)</label>
+          <p-inputnumber 
+            id="weightKg" 
+            formControlName="weightKg" 
+            placeholder="kg" 
+            [min]="30" 
+            [max]="250"
+            class="w-full"
+          ></p-inputnumber>
+        </div>
+      </div>
+
+      <!-- Training Level -->
+      <div class="field">
+        <label for="trainingLevel">Nivel de Experiencia *</label>
+        <p-select 
+          id="trainingLevel" 
+          [options]="trainingLevels" 
+          formControlName="trainingLevel" 
+          optionLabel="label" 
+          optionValue="value"
+          class="w-full"
+        ></p-select>
+      </div>
+
+      <!-- Main Goal -->
+      <div class="field">
+        <label for="mainGoal">Objetivo Principal *</label>
+        <p-select 
+          id="mainGoal" 
+          [options]="trainingGoals" 
+          formControlName="mainGoal" 
+          optionLabel="label" 
+          optionValue="value"
+          class="w-full"
+        ></p-select>
+      </div>
+
+      <!-- Training Type -->
+      <div class="field">
+        <label for="trainingType">Tipo de Entrenamiento Favorito *</label>
+        <p-select 
+          id="trainingType" 
+          [options]="trainingTypes" 
+          formControlName="trainingType" 
+          optionLabel="label" 
+          optionValue="value"
+          class="w-full"
+        ></p-select>
+      </div>
+
+      <!-- Submit Button -->
+      <div class="actions">
+        <p-button 
+          type="submit" 
+          label="Crear Perfil" 
+          icon="pi pi-check" 
+          [disabled]="profileForm.invalid"
+          styleClass="submit-btn"
+        ></p-button>
+      </div>
+
+    </form>
+  </div>
+</div>

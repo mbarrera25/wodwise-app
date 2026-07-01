@@ -1,1 +1,147 @@
-/* You can add global styles to this file, and also import other style files */
+/* PrimeIcons styling */
+@import "primeicons/primeicons.css";
+
+/* Core Design System Tokens */
+:root {
+  --app-bg: #f1f5f9;
+  --app-surface: #ffffff;
+  --app-primary: #2563eb;
+  --app-primary-hover: #1d4ed8;
+  --app-accent: #10b981;
+  --app-text: #0f172a;
+  --app-text-muted: #64748b;
+  --app-border: #e2e8f0;
+  --app-radius: 16px;
+  --app-radius-sm: 8px;
+  --app-shadow: 0 4px 6px -1px rgb(0 0 0 / 0.05), 0 2px 4px -2px rgb(0 0 0 / 0.05);
+  --app-shadow-lg: 0 10px 15px -3px rgb(0 0 0 / 0.04), 0 4px 6px -4px rgb(0 0 0 / 0.04);
+}
+
+/* Global Reset & Typography */
+* {
+  box-sizing: border-box;
+  margin: 0;
+  padding: 0;
+}
+
+body {
+  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  background-color: var(--app-bg);
+  color: var(--app-text);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+/* Scrollbar styling for a clean mobile feel */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-track {
+  background: transparent;
+}
+::-webkit-scrollbar-thumb {
+  background: var(--app-border);
+  border-radius: 10px;
+}
+
+/* ==========================================
+   GLOBAL PRIMENG OVERRIDES & ALIGNMENT FIXES
+   ========================================== */
+
+/* 1. Host and sizing constraints for all layouts */
+p-inputnumber,
+p-select,
+p-button {
+  display: block !important;
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* 2. Sizing constraints for inner PrimeNG elements */
+.p-inputnumber,
+.p-inputnumber-input,
+.p-select,
+.p-select-label,
+.p-inputtext,
+.p-textarea {
+  width: 100% !important;
+  min-width: 0 !important;
+}
+
+/* 3. Core Input appearance forcing Light Mode styles */
+.p-inputtext,
+.p-select,
+.p-textarea,
+.p-inputnumber {
+  background-color: #ffffff !important;
+  border: 1px solid #cbd5e1 !important;
+  color: var(--app-text) !important;
+  border-radius: var(--app-radius-sm) !important;
+  font-size: 0.9rem !important;
+  box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.02) !important;
+
+  &:focus-within {
+    border-color: var(--app-primary) !important;
+    box-shadow: 0 0 0 1px var(--app-primary) !important;
+  }
+}
+
+.p-inputtext {
+  padding: 10px 12px !important;
+}
+
+.p-inputnumber-input {
+  background: transparent !important;
+  border: none !important;
+  color: var(--app-text) !important;
+  padding: 10px 12px !important;
+
+  &:focus {
+    outline: none !important;
+    box-shadow: none !important;
+  }
+}
+
+.p-select {
+  background-color: #ffffff !important;
+
+  .p-select-label {
+    color: var(--app-text) !important;
+  }
+}
+
+.p-textarea {
+  padding: 10px 12px !important;
+  font-family: inherit !important;
+  resize: vertical !important;
+}
+
+/* 4. Select dropdown options panel styling */
+.p-select-overlay {
+  background-color: #ffffff !important;
+  border: 1px solid var(--app-border) !important;
+  box-shadow: var(--app-shadow-lg) !important;
+  
+  .p-select-list {
+    padding: 4px 0 !important;
+    background-color: #ffffff !important;
+  }
+
+  .p-select-option {
+    color: var(--app-text) !important;
+    padding: 10px 14px !important;
+    font-size: 0.9rem !important;
+    background-color: #ffffff !important;
+
+    &:hover {
+      background-color: #f1f5f9 !important;
+      color: var(--app-text) !important;
+    }
+
+    &.p-select-option-selected {
+      background-color: var(--app-primary) !important;
+      color: #ffffff !important;
+    }
+  }
+}

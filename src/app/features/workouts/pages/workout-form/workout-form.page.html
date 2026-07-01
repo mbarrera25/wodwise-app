@@ -1,0 +1,489 @@
+<div class="workout-form-container">
+  <div class="page-header">
+    <p-button icon="pi pi-chevron-left" styleClass="back-btn" (click)="cancel()"></p-button>
+    <h1>Registrar Entrenamiento</h1>
+  </div>
+  
+  <p class="subtitle">Guarda los detalles de tu sesión y obtén el análisis de tu coach.</p>
+
+  <form [formGroup]="workoutForm" (ngSubmit)="onSubmit()" class="form-card">
+    
+    <!-- =====================================================================
+         BLOQUE 1: DATOS BÁSICOS
+         ===================================================================== -->
+    <div class="form-step-section">
+      <div class="step-title">
+        <span class="step-number">1</span>
+        <h2>Datos Básicos del Entrenamiento</h2>
+      </div>
+
+      <div class="step-body">
+        <!-- Name -->
+        <div class="field">
+          <label for="name">Nombre de la Sesión / WOD *</label>
+          <input 
+            id="name" 
+            type="text" 
+            pInputText 
+            formControlName="name" 
+            placeholder="Ej: Fran, Fuerza de Sentadillas, Hyrox Simulado"
+            class="w-full"
+          />
+          @if (workoutForm.get('name')?.invalid && workoutForm.get('name')?.touched) {
+            <small class="error-msg">Ingresa un nombre para el entrenamiento (mínimo 3 letras).</small>
+          }
+        </div>
+
+        <!-- Type & Discipline Template Selection -->
+        <div class="row">
+          <div class="field col">
+            <label for="type">Tipo General *</label>
+            <p-select 
+              id="type" 
+              [options]="workoutTypes" 
+              formControlName="type" 
+              optionLabel="label" 
+              optionValue="value"
+              class="w-full"
+            ></p-select>
+            @if (workoutForm.get('type')?.invalid && workoutForm.get('type')?.touched) {
+              <small class="error-msg">Selecciona el tipo de entrenamiento.</small>
+            }
+          </div>
+
+          <div class="field col">
+            <label for="discipline">Plantilla / Disciplina *</label>
+            <p-select 
+              id="discipline" 
+              [options]="disciplines" 
+              formControlName="discipline" 
+              optionLabel="label" 
+              optionValue="value"
+              class="w-full"
+              (onChange)="onDisciplineChange($event.value)"
+            ></p-select>
+            @if (workoutForm.get('discipline')?.invalid && workoutForm.get('discipline')?.touched) {
+              <small class="error-msg">Selecciona una plantilla o deja Libre/Personalizado.</small>
+            }
+          </div>
+        </div>
+
+        <!-- Duration -->
+        <div class="field">
+          <label for="durationMinutes">Duración Total (minutos)</label>
+          <p-inputnumber 
+            id="durationMinutes" 
+            formControlName="durationMinutes" 
+            placeholder="Ej: 45" 
+            [min]="1" 
+            [max]="300"
+            class="w-full"
+          ></p-inputnumber>
+          @if (workoutForm.get('durationMinutes')?.invalid && workoutForm.get('durationMinutes')?.touched) {
+            <small class="error-msg">La duración debe estar entre 1 y 300 minutos.</small>
+          }
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         BLOQUE 2: SECCIONES Y BLOQUES DE TRABAJO
+         ===================================================================== -->
+    <div class="form-step-section">
+      <div class="step-title">
+        <span class="step-number">2</span>
+        <h2>Bloques y Secciones de Trabajo</h2>
+      </div>
+
+      <div class="step-body">
+        <div class="sections-container" formArrayName="sections">
+          @if (sections.length === 0) {
+            <div class="no-sections-alert">
+              <i class="pi pi-exclamation-circle"></i>
+              <span>Debes agregar al menos una sección para registrar tu entrenamiento.</span>
+            </div>
+          }
+
+          @for (section of sections.controls; track $index) {
+            <div [formGroupName]="$index" class="section-card" [class.collapsed]="collapsedSections[$index]">
+              
+              <!-- Collapsible Header -->
+              <div class="section-card-header" (click)="toggleSection($index)">
+                <div class="header-main">
+                  <i class="pi" [ngClass]="collapsedSections[$index] ? 'pi-chevron-right' : 'pi-chevron-down'"></i>
+                  <span class="section-title-label">Bloque #{{ $index + 1 }}</span>
+                </div>
+                
+                <div class="header-actions" (click)="$event.stopPropagation()">
+                  <!-- Status Badge -->
+                  @switch (getSectionStatus($index)) {
+                    @case ('complete') {
+                      <span class="status-badge status-complete">Completo</span>
+                    }
+                    @case ('missing_data') {
+                      <span class="status-badge status-missing">Faltan datos</span>
+                    }
+                    @case ('incomplete_score') {
+                      <span class="status-badge status-score-incomplete">Score incompleto</span>
+                    }
+                    @case ('no_score') {
+                      <span class="status-badge status-no-score">Sin score</span>
+                    }
+                  }
+
+                  <p-button 
+                    icon="pi pi-trash" 
+                    styleClass="delete-sec-btn" 
+                    (click)="removeSection($index)" 
+                    [disabled]="sections.length <= 1"
+                    title="Eliminar Sección"
+                  ></p-button>
+                </div>
+              </div>
+
+              <!-- Live summary when collapsed -->
+              @if (collapsedSections[$index]) {
+                <div class="collapsed-preview" (click)="toggleSection($index)">
+                  <span class="preview-text">
+                    {{ getSectionSummary($index) }}
+                  </span>
+                </div>
+              }
+
+              <!-- Expanded Fields -->
+              @if (!collapsedSections[$index]) {
+                <div class="section-card-body">
+                  <!-- Section Type and Custom Name -->
+                  <div class="row">
+                    <div class="field col">
+                      <label>Tipo de Bloque *</label>
+                      <p-select 
+                        [options]="sectionTypes" 
+                        formControlName="type" 
+                        optionLabel="label" 
+                        optionValue="value"
+                        class="w-full"
+                      ></p-select>
+                      @if (section.get('type')?.invalid && section.get('type')?.touched) {
+                        <small class="error-msg">Selecciona el tipo de bloque.</small>
+                      }
+                    </div>
+                    <div class="field col">
+                      <label>Nombre del Bloque *</label>
+                      <input 
+                        type="text" 
+                        pInputText 
+                        formControlName="name" 
+                        placeholder="Ej: Emom, Accesorios, Core"
+                        class="w-full"
+                      />
+                      @if (section.get('name')?.invalid && section.get('name')?.touched) {
+                        <small class="error-msg">Ingresa un nombre para este bloque.</small>
+                      }
+                    </div>
+                  </div>
+
+                  <!-- Exercises list in Section -->
+                  <div class="field">
+                    <label>Movimientos / Ejercicios *</label>
+                    <div class="input-helper">Escribe los movimientos o la descripción del bloque.</div>
+                    <textarea 
+                      pTextarea 
+                      formControlName="exercisesRaw" 
+                      rows="3" 
+                      placeholder="Ej: 5 rondas: 10 wall balls, 10 burpees, 200m run"
+                      class="w-full"
+                    ></textarea>
+                    @if (section.get('exercisesRaw')?.invalid && section.get('exercisesRaw')?.touched) {
+                      <small class="error-msg">Agrega al menos un ejercicio o movimiento.</small>
+                    }
+                  </div>
+
+                  <!-- Collapsible Score Toggle Button -->
+                  <div class="score-toggle-container">
+                    <p-button 
+                      type="button" 
+                      [label]="scoreExpanded[$index] ? 'Quitar Marca o Score' : '+ Agregar score o marca'"
+                      [styleClass]="scoreExpanded[$index] ? 'score-toggle-btn active' : 'score-toggle-btn'"
+                      (click)="toggleScore($index)"
+                    ></p-button>
+                  </div>
+
+                  <!-- Score Sub-group (Drawer) -->
+                  @if (scoreExpanded[$index]) {
+                    <div class="score-group-box" formGroupName="score">
+                      <span class="score-box-title">Configuración de Marcas / Score</span>
+                      
+                      <!-- Score Type selector -->
+                      <div class="field">
+                        <label>Tipo de Score Requerido</label>
+                        <p-select 
+                          [options]="scoreTypes" 
+                          formControlName="scoreType" 
+                          optionLabel="label" 
+                          optionValue="value"
+                          class="w-full"
+                          (onChange)="onScoreTypeChange($index)"
+                        ></p-select>
+                      </div>
+
+                      <div class="score-help-box">
+                        @switch (section.get('score.scoreType')?.value) {
+                          @case ('none') {
+                            <small class="info-help-text">💡 Este bloque se guardará sin score.</small>
+                          }
+                          @case ('time') {
+                            <small class="warning-help-text">⚠️ Tiempo Final (MM:SS) es obligatorio para validar este bloque.</small>
+                          }
+                          @case ('weight') {
+                            <small class="warning-help-text">⚠️ Peso Máximo (kg) es obligatorio para validar este bloque.</small>
+                          }
+                          @case ('amrap') {
+                            <small class="warning-help-text">⚠️ Rondas es obligatorio para validar este bloque.</small>
+                          }
+                          @case ('calories') {
+                            <small class="warning-help-text">⚠️ Calorías es obligatorio para validar este bloque.</small>
+                          }
+                          @case ('distance') {
+                            <small class="warning-help-text">⚠️ Distancia es obligatorio para validar este bloque.</small>
+                          }
+                        }
+                      </div>
+
+                      <!-- Standard Metric Controls -->
+                      <div class="stats-row">
+                        <div class="field col">
+                          <label>Series / Sets</label>
+                          <p-inputnumber formControlName="sets" placeholder="Sets" [min]="0" class="w-full"></p-inputnumber>
+                        </div>
+                        <div class="field col" [class.required-field]="section.get('score.scoreType')?.value === 'weight'">
+                          <label>Peso (kg) <span class="required-star">*</span></label>
+                          <p-inputnumber formControlName="weightKg" placeholder="Kg" [min]="0" class="w-full"></p-inputnumber>
+                          @if (section.get('score.weightKg')?.invalid && section.get('score.weightKg')?.touched) {
+                            <small class="error-msg">Ingresa el peso máximo en kg.</small>
+                          }
+                        </div>
+                        <div class="field col">
+                          <label>Reps</label>
+                          <p-inputnumber formControlName="reps" placeholder="Reps" [min]="0" class="w-full"></p-inputnumber>
+                        </div>
+                      </div>
+
+                      <div class="stats-row">
+                        <div class="field col" [class.required-field]="section.get('score.scoreType')?.value === 'amrap'">
+                          <label>Rondas <span class="required-star">*</span></label>
+                          <p-inputnumber formControlName="rounds" placeholder="Rds" [min]="0" class="w-full"></p-inputnumber>
+                          @if (section.get('score.rounds')?.invalid && section.get('score.rounds')?.touched) {
+                            <small class="error-msg">Ingresa el número de rondas.</small>
+                          }
+                        </div>
+                        <div class="field col">
+                          <label>Reps Extras</label>
+                          <p-inputnumber formControlName="repsCompleted" placeholder="Reps" [min]="0" class="w-full"></p-inputnumber>
+                        </div>
+                        <div class="field col" [class.required-field]="section.get('score.scoreType')?.value === 'distance'">
+                          <label>Distancia (m) <span class="required-star">*</span></label>
+                          <p-inputnumber formControlName="distanceMeters" placeholder="m" [min]="0" class="w-full"></p-inputnumber>
+                          @if (section.get('score.distanceMeters')?.invalid && section.get('score.distanceMeters')?.touched) {
+                            <small class="error-msg">Ingresa la distancia (m).</small>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="row">
+                        <div class="field col" [class.required-field]="section.get('score.scoreType')?.value === 'time'">
+                          <label>Tiempo Final (MM:SS) <span class="required-star">*</span></label>
+                          <input 
+                            type="text" 
+                            pInputText 
+                            formControlName="finalTime" 
+                            placeholder="Ej: 14:35" 
+                            class="w-full"
+                          />
+                          @if (section.get('score.finalTime')?.invalid && section.get('score.finalTime')?.touched) {
+                            <small class="error-msg">Usa formato MM:SS (Ej: 12:45).</small>
+                          }
+                        </div>
+                        <div class="field col" [class.required-field]="section.get('score.scoreType')?.value === 'calories'">
+                          <label>Calorías <span class="required-star">*</span></label>
+                          <p-inputnumber formControlName="calories" placeholder="cal" [min]="0" class="w-full"></p-inputnumber>
+                          @if (section.get('score.calories')?.invalid && section.get('score.calories')?.touched) {
+                            <small class="error-msg">Ingresa las calorías.</small>
+                          }
+                        </div>
+                      </div>
+
+                      <div class="field">
+                        <label>Notas del Score / Marca</label>
+                        <input 
+                          type="text" 
+                          pInputText 
+                          formControlName="notes" 
+                          placeholder="Ej: unbroken, Rx, escalado" 
+                          class="w-full"
+                        />
+                      </div>
+                    </div>
+                  }
+                </div>
+              }
+            </div>
+          }
+
+          <p-button 
+            type="button" 
+            label="Añadir Nueva Sección" 
+            icon="pi pi-plus" 
+            styleClass="add-sec-btn" 
+            (click)="addSection()"
+          ></p-button>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         BLOQUE 3: SENSACIONES E INTENSIDAD
+         ===================================================================== -->
+    <div class="form-step-section">
+      <div class="step-title">
+        <span class="step-number">3</span>
+        <h2>Sensaciones e Intensidad</h2>
+      </div>
+
+      <div class="step-body">
+        <div class="row">
+          <div class="field col">
+            <label for="energyBefore">Energía al Iniciar *</label>
+            <div class="input-helper">1 = Cansado, 10 = A tope</div>
+            <p-select 
+              id="energyBefore" 
+              [options]="difficultyOptions" 
+              formControlName="energyBefore" 
+              optionLabel="label" 
+              optionValue="value"
+              class="w-full"
+            ></p-select>
+            @if (workoutForm.get('energyBefore')?.invalid && workoutForm.get('energyBefore')?.touched) {
+              <small class="error-msg">Selecciona un valor del 1 al 10.</small>
+            }
+          </div>
+
+          <div class="field col">
+            <label for="energyAfter">Energía al Terminar *</label>
+            <div class="input-helper">1 = Agotado, 10 = Vital</div>
+            <p-select 
+              id="energyAfter" 
+              [options]="difficultyOptions" 
+              formControlName="energyAfter" 
+              optionLabel="label" 
+              optionValue="value"
+              class="w-full"
+            ></p-select>
+            @if (workoutForm.get('energyAfter')?.invalid && workoutForm.get('energyAfter')?.touched) {
+              <small class="error-msg">Selecciona un valor del 1 al 10.</small>
+            }
+          </div>
+        </div>
+
+        <div class="row">
+          <div class="field col">
+            <label for="perceivedDifficulty">Dificultad Percibida *</label>
+            <div class="input-helper">1 = Muy fácil, 10 = Límite</div>
+            <p-select 
+              id="perceivedDifficulty" 
+              [options]="difficultyOptions" 
+              formControlName="perceivedDifficulty" 
+              optionLabel="label" 
+              optionValue="value"
+              class="w-full"
+            ></p-select>
+            @if (workoutForm.get('perceivedDifficulty')?.invalid && workoutForm.get('perceivedDifficulty')?.touched) {
+              <small class="error-msg">Selecciona un valor del 1 al 10.</small>
+            }
+          </div>
+
+          <div class="field col">
+            <label for="perceivedIntensity">Intensidad Promedio *</label>
+            <div class="input-helper">1 = Suave, 10 = Exigente</div>
+            <p-select 
+              id="perceivedIntensity" 
+              [options]="difficultyOptions" 
+              formControlName="perceivedIntensity" 
+              optionLabel="label" 
+              optionValue="value"
+              class="w-full"
+            ></p-select>
+            @if (workoutForm.get('perceivedIntensity')?.invalid && workoutForm.get('perceivedIntensity')?.touched) {
+              <small class="error-msg">Selecciona un valor del 1 al 10.</small>
+            }
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         BLOQUE 4: NOTAS GENERALES
+         ===================================================================== -->
+    <div class="form-step-section">
+      <div class="step-title">
+        <span class="step-number">4</span>
+        <h2>Notas Generales</h2>
+      </div>
+
+      <div class="step-body">
+        <div class="field">
+          <label for="notes">Notas generales de la sesión</label>
+          <textarea 
+            id="notes" 
+            pTextarea 
+            formControlName="notes" 
+            rows="2" 
+            placeholder="Comentarios adicionales sobre el entrenamiento..."
+            class="w-full"
+          ></textarea>
+        </div>
+      </div>
+    </div>
+
+    <!-- =====================================================================
+         DIAGNÓSTICO Y ACCIONES
+         ===================================================================== -->
+    <!-- Error Summary Box -->
+    @if (showErrorSummary && invalidFields.length > 0) {
+      <div class="error-summary-box">
+        <div class="error-summary-header">
+          <i class="pi pi-exclamation-triangle"></i>
+          <span>Faltan datos obligatorios para guardar:</span>
+        </div>
+        <ul class="error-summary-list">
+          @for (error of invalidFields; track error) {
+            <li>{{ error }}</li>
+          }
+        </ul>
+      </div>
+    }
+
+    <!-- Buttons -->
+    <div class="form-actions-container">
+      <div class="form-actions">
+        <p-button 
+          type="button" 
+          label="Cancelar" 
+          styleClass="cancel-btn" 
+          (click)="cancel()"
+        ></p-button>
+        <p-button 
+          type="submit" 
+          label="Guardar y Evaluar" 
+          icon="pi pi-bolt" 
+          styleClass="submit-btn"
+        ></p-button>
+      </div>
+
+      @if (showErrorSummary && (workoutForm.invalid || sections.length === 0)) {
+        <p class="disabled-help-text">💡 Hay campos pendientes o con formato incorrecto en el formulario.</p>
+      }
+    </div>
+
+  </form>
+</div>
