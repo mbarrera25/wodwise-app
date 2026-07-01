@@ -1,4 +1,4 @@
-import { Injectable, signal, computed } from '@angular/core';
+import { Injectable, signal, computed, isDevMode } from '@angular/core';
 import { createClient, SupabaseClient, User } from '@supabase/supabase-js';
 import { environment } from '../../../environments/environment';
 import { UserProfile } from '../models';
@@ -18,8 +18,26 @@ export class AuthService {
   }
 
   private async initSupabase(): Promise<void> {
+    const url = environment.supabaseUrl;
+    const key = environment.supabaseKey;
+
+    if (!url || (!url.startsWith('http://') && !url.startsWith('https://'))) {
+      console.error('[Supabase Init Error] La URL de Supabase es inválida o está vacía. Debe comenzar con http:// o https://.');
+      return;
+    }
+
+    if (!key || key.trim() === '' || key === 'YOUR_SUPABASE_ANON_KEY') {
+      console.error('[Supabase Init Error] La clave Anon/Publishable de Supabase está vacía o es inválida.');
+      return;
+    }
+
+    if (isDevMode()) {
+      console.log(`[Supabase Init Debug] URL: ${url}`);
+      console.log(`[Supabase Init Debug] Key Configured: ${!!key}, Prefix: ${key.substring(0, 8)}...`);
+    }
+
     try {
-      this.supabase = createClient(environment.supabaseUrl, environment.supabaseKey);
+      this.supabase = createClient(url, key);
       
       // Load current session
       const { data: { session } } = await this.supabase.auth.getSession();
