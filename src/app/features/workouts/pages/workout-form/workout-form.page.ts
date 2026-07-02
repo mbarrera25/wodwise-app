@@ -1,5 +1,5 @@
 import { Component, inject, OnInit, isDevMode } from '@angular/core';
-import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators, AbstractControl } from '@angular/forms';
+import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { WorkoutService } from '../../../../core/services/workout.service';
 import { TrainingTemplateService } from '../../../../core/services/training-template.service';
@@ -34,23 +34,35 @@ export class WorkoutFormPage implements OnInit {
   private readonly workoutService = inject(WorkoutService);
   private readonly templateService = inject(TrainingTemplateService);
 
+  currentStep = 1;
+
+  // Active modal editing properties
+  isEditingSection = false;
+  activeEditIndex: number | null = null;
+  editSectionForm: FormGroup | null = null;
+
   readonly workoutForm: FormGroup = this.fb.group({
     name: ['', [Validators.required, Validators.minLength(3)]],
     type: [WorkoutType.Wod, Validators.required],
     discipline: ['custom', Validators.required],
+    date: [this.formatDate(new Date()), Validators.required],
     durationMinutes: [null, [Validators.min(1), Validators.max(300)]],
-    perceivedDifficulty: [5, [Validators.required, Validators.min(1), Validators.max(10)]],
-    perceivedIntensity: [5, [Validators.required, Validators.min(1), Validators.max(10)]],
+    // Step 4 final score fields
+    scoreType: ['none'],
+    finalScore: [''],
+    perceivedDifficulty: [8, [Validators.required, Validators.min(1), Validators.max(10)]],
+    perceivedIntensity: [8, [Validators.required, Validators.min(1), Validators.max(10)]],
     energyBefore: [7, [Validators.required, Validators.min(1), Validators.max(10)]],
     energyAfter: [5, [Validators.required, Validators.min(1), Validators.max(10)]],
-    sections: this.fb.array([]),
-    notes: ['']
+    notes: [''],
+    sections: this.fb.array([])
   });
 
   readonly workoutTypes = Object.entries(WORKOUT_TYPE_LABELS).map(([value, label]) => ({ label, value }));
   readonly sectionTypes = Object.entries(SECTION_TYPE_LABELS).map(([value, label]) => ({ label, value }));
   readonly difficultyOptions = Array.from({ length: 10 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }));
   readonly disciplines = this.templateService.getDisciplines();
+  readonly SectionType = SectionType;
 
   readonly scoreTypes = [
     { label: 'Ninguno / Libre', value: 'none' },
@@ -61,7 +73,7 @@ export class WorkoutFormPage implements OnInit {
     { label: 'Distancia (m)', value: 'distance' }
   ];
 
-  // Collapsible tracking arrays
+  // Collapsible tracking arrays for backward-compatibility representation
   collapsedSections: boolean[] = [];
   scoreExpanded: boolean[] = [];
 
@@ -78,10 +90,109 @@ export class WorkoutFormPage implements OnInit {
     this.onDisciplineChange('custom');
   }
 
+  formatDate(date: Date): string {
+    const day = String(date.getDate()).padStart(2, '0');
+    const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
+    const month = months[date.getMonth()];
+    const year = date.getFullYear();
+    return `${day} ${month} ${year}`;
+  }
+
+  // 1. Quick Template Selector (Chips)
+  selectQuickTemplate(templateName: string): void {
+    if (templateName === 'crossfit') {
+      this.workoutForm.patchValue({
+        name: 'CrossFit de hoy',
+        type: WorkoutType.Wod,
+        discipline: 'crossfit'
+      });
+      this.onDisciplineChange('crossfit');
+    } else if (templateName === 'hyrox') {
+      this.workoutForm.patchValue({
+        name: 'Hyrox del día',
+        type: WorkoutType.Cardio,
+        discipline: 'hyrox'
+      });
+      this.onDisciplineChange('hyrox');
+    } else if (templateName === 'strength') {
+      this.workoutForm.patchValue({
+        name: 'Fuerza del día',
+        type: WorkoutType.Strength,
+        discipline: 'strength'
+      });
+      this.onDisciplineChange('strength');
+    } else {
+      this.workoutForm.patchValue({
+        name: 'Entrenamiento libre',
+        type: WorkoutType.Wod,
+        discipline: 'custom'
+      });
+      this.onDisciplineChange('custom');
+    }
+  }
+
+  // 2. Navigation Flow controls
+  nextStep(): void {
+    this.showErrorSummary = false;
+    this.invalidFields = [];
+
+    if (this.currentStep === 1) {
+      const nameValid = this.workoutForm.get('name')?.valid;
+      const dateValid = this.workoutForm.get('date')?.valid;
+      const typeValid = this.workoutForm.get('type')?.valid;
+
+      if (nameValid && dateValid && typeValid) {
+        this.currentStep = 2;
+      } else {
+        this.workoutForm.get('name')?.markAsTouched();
+        this.workoutForm.get('date')?.markAsTouched();
+        this.workoutForm.get('type')?.markAsTouched();
+        this.invalidFields = ['Faltan datos obligatorios del paso 1.'];
+        this.showErrorSummary = true;
+      }
+    } else if (this.currentStep === 2) {
+      if (this.sections.length > 0) {
+        this.currentStep = 3;
+      } else {
+        this.invalidFields = ['Debes agregar al menos una sección.'];
+        this.showErrorSummary = true;
+      }
+    } else if (this.currentStep === 3) {
+      // Validate all sections have exercises raw
+      const hasEmptySection = this.sections.controls.some(ctrl => ctrl.get('exercisesRaw')?.invalid);
+      if (!hasEmptySection) {
+        this.currentStep = 4;
+        this.onStep4ScoreTypeChange(); // Initialize Step 4 validators
+      } else {
+        this.sections.controls.forEach(ctrl => ctrl.get('exercisesRaw')?.markAsTouched());
+        this.invalidFields = ['Todas las secciones agregadas deben tener movimientos.'];
+        this.showErrorSummary = true;
+      }
+    }
+  }
+
+  prevStep(): void {
+    this.showErrorSummary = false;
+    if (this.currentStep > 1) {
+      this.currentStep--;
+    }
+  }
+
+  goToStep(step: number): void {
+    // Basic validation guard when attempting to jump steps directly
+    if (step === 2 && !this.step1Complete) return;
+    if (step === 3 && (!this.step1Complete || !this.step2Complete)) return;
+    if (step === 4 && (!this.step1Complete || !this.step2Complete || !this.step3Complete)) return;
+    
+    this.showErrorSummary = false;
+    this.currentStep = step;
+  }
+
+  // 3. Section control actions
   addSection(type: SectionType = SectionType.Wod, name: string = '', exercisesRaw: string = '', score: any = {}): void {
     const sectionGroup = this.fb.group({
       type: [type, Validators.required],
-      name: [name, Validators.required],
+      name: [name || this.getDefaultSectionName(type), Validators.required],
       exercisesRaw: [exercisesRaw, Validators.required],
       score: this.fb.group({
         scoreType: [score.scoreType || 'none'],
@@ -98,17 +209,12 @@ export class WorkoutFormPage implements OnInit {
     });
     this.sections.push(sectionGroup);
 
-    // New sections start expanded, scores collapsed
     this.collapsedSections.push(false);
-    
-    const hasScoreData = score && Object.keys(score).some(k => score[k] !== undefined && score[k] !== null && score[k] !== '');
-    this.scoreExpanded.push(hasScoreData);
+    this.scoreExpanded.push(false);
+  }
 
-    // If there is prefilled score data, configure it
-    const idx = this.sections.length - 1;
-    if (score.scoreType) {
-      this.onScoreTypeChange(idx);
-    }
+  getDefaultSectionName(type: SectionType): string {
+    return SECTION_TYPE_LABELS[type] || 'Nueva Sección';
   }
 
   removeSection(index: number): void {
@@ -119,24 +225,138 @@ export class WorkoutFormPage implements OnInit {
     }
   }
 
-  toggleSection(index: number): void {
-    this.collapsedSections[index] = !this.collapsedSections[index];
+  moveSectionUp(index: number): void {
+    if (index === 0) return;
+    const current = this.sections.at(index);
+    this.sections.removeAt(index);
+    this.sections.insert(index - 1, current);
+
+    // Swap expanded lists
+    const colVal = this.collapsedSections[index];
+    this.collapsedSections[index] = this.collapsedSections[index - 1];
+    this.collapsedSections[index - 1] = colVal;
   }
 
-  toggleScore(index: number): void {
-    this.scoreExpanded[index] = !this.scoreExpanded[index];
-    const section = this.sections.at(index) as FormGroup;
-    const scoreGroup = section.get('score') as FormGroup;
+  moveSectionDown(index: number): void {
+    if (index === this.sections.length - 1) return;
+    const current = this.sections.at(index);
+    this.sections.removeAt(index);
+    this.sections.insert(index + 1, current);
 
-    if (!this.scoreExpanded[index]) {
-      // Clear score type when collapsed/deleted
-      scoreGroup.get('scoreType')?.setValue('none');
-      this.onScoreTypeChange(index);
-    } else {
-      // Focus score type
-      scoreGroup.get('scoreType')?.setValue('none');
-      this.onScoreTypeChange(index);
+    // Swap expanded lists
+    const colVal = this.collapsedSections[index];
+    this.collapsedSections[index] = this.collapsedSections[index + 1];
+    this.collapsedSections[index + 1] = colVal;
+  }
+
+  // 4. Modal Section Editing Actions
+  openEditSectionModal(index: number): void {
+    this.activeEditIndex = index;
+    const sec = this.sections.at(index) as FormGroup;
+    const scoreGroup = sec.get('score') as FormGroup;
+
+    this.editSectionForm = this.fb.group({
+      type: [sec.get('type')?.value, Validators.required],
+      name: [sec.get('name')?.value, Validators.required],
+      exercisesRaw: [sec.get('exercisesRaw')?.value, Validators.required],
+      scoreType: [scoreGroup.get('scoreType')?.value || 'none'],
+      sets: [scoreGroup.get('sets')?.value || null, Validators.min(0)],
+      weightKg: [scoreGroup.get('weightKg')?.value || null, Validators.min(0)],
+      reps: [scoreGroup.get('reps')?.value || null, Validators.min(0)],
+      rounds: [scoreGroup.get('rounds')?.value || null, Validators.min(0)],
+      repsCompleted: [scoreGroup.get('repsCompleted')?.value || null, Validators.min(0)],
+      finalTime: [scoreGroup.get('finalTime')?.value || '', Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)],
+      distanceMeters: [scoreGroup.get('distanceMeters')?.value || null, Validators.min(0)],
+      calories: [scoreGroup.get('calories')?.value || null, Validators.min(0)],
+      notes: [scoreGroup.get('notes')?.value || '']
+    });
+
+    this.onModalScoreTypeChange();
+    this.isEditingSection = true;
+  }
+
+  onModalScoreTypeChange(): void {
+    if (!this.editSectionForm) return;
+
+    const scoreType = this.editSectionForm.get('scoreType')?.value;
+    const weightCtrl = this.editSectionForm.get('weightKg');
+    const roundsCtrl = this.editSectionForm.get('rounds');
+    const finalTimeCtrl = this.editSectionForm.get('finalTime');
+    const distanceCtrl = this.editSectionForm.get('distanceMeters');
+    const caloriesCtrl = this.editSectionForm.get('calories');
+
+    // Reset validations to baseline
+    weightCtrl?.setValidators([Validators.min(0)]);
+    roundsCtrl?.setValidators([Validators.min(0)]);
+    caloriesCtrl?.setValidators([Validators.min(0)]);
+    distanceCtrl?.setValidators([Validators.min(0)]);
+    finalTimeCtrl?.setValidators([Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
+
+    if (scoreType === 'weight') {
+      weightCtrl?.setValidators([Validators.required, Validators.min(0)]);
+    } else if (scoreType === 'amrap') {
+      roundsCtrl?.setValidators([Validators.required, Validators.min(0)]);
+    } else if (scoreType === 'time') {
+      finalTimeCtrl?.setValidators([Validators.required, Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
+    } else if (scoreType === 'calories') {
+      caloriesCtrl?.setValidators([Validators.required, Validators.min(0)]);
+    } else if (scoreType === 'distance') {
+      distanceCtrl?.setValidators([Validators.required, Validators.min(0)]);
     }
+
+    weightCtrl?.updateValueAndValidity();
+    roundsCtrl?.updateValueAndValidity();
+    finalTimeCtrl?.updateValueAndValidity();
+    caloriesCtrl?.updateValueAndValidity();
+    distanceCtrl?.updateValueAndValidity();
+  }
+
+  saveSectionEdit(): void {
+    if (!this.editSectionForm || this.editSectionForm.invalid || this.activeEditIndex === null) {
+      this.editSectionForm?.markAllAsTouched();
+      return;
+    }
+
+    const val = this.editSectionForm.value;
+    const sec = this.sections.at(this.activeEditIndex) as FormGroup;
+    
+    sec.get('type')?.setValue(val.type);
+    sec.get('name')?.setValue(val.name);
+    sec.get('exercisesRaw')?.setValue(val.exercisesRaw);
+
+    const scoreGroup = sec.get('score') as FormGroup;
+    scoreGroup.get('scoreType')?.setValue(val.scoreType);
+    scoreGroup.get('sets')?.setValue(val.sets);
+    scoreGroup.get('weightKg')?.setValue(val.weightKg);
+    scoreGroup.get('reps')?.setValue(val.reps);
+    scoreGroup.get('rounds')?.setValue(val.rounds);
+    scoreGroup.get('repsCompleted')?.setValue(val.repsCompleted);
+    scoreGroup.get('finalTime')?.setValue(val.finalTime);
+    scoreGroup.get('distanceMeters')?.setValue(val.distanceMeters);
+    scoreGroup.get('calories')?.setValue(val.calories);
+    scoreGroup.get('notes')?.setValue(val.notes);
+
+    this.onScoreTypeChange(this.activeEditIndex);
+    this.isEditingSection = false;
+    this.activeEditIndex = null;
+  }
+
+  closeEditSectionModal(): void {
+    this.isEditingSection = false;
+    this.activeEditIndex = null;
+  }
+
+  // 5. General score configuration in Step 4
+  onStep4ScoreTypeChange(): void {
+    const scoreType = this.workoutForm.get('scoreType')?.value;
+    const finalScoreCtrl = this.workoutForm.get('finalScore');
+    
+    if (scoreType === 'none') {
+      finalScoreCtrl?.clearValidators();
+    } else {
+      finalScoreCtrl?.setValidators([Validators.required]);
+    }
+    finalScoreCtrl?.updateValueAndValidity();
   }
 
   onScoreTypeChange(index: number): void {
@@ -144,37 +364,36 @@ export class WorkoutFormPage implements OnInit {
     const scoreGroup = section.get('score') as FormGroup;
     const scoreType = scoreGroup.get('scoreType')?.value;
 
-    const weightControl = scoreGroup.get('weightKg');
-    const roundsControl = scoreGroup.get('rounds');
-    const finalTimeControl = scoreGroup.get('finalTime');
-    const distanceControl = scoreGroup.get('distanceMeters');
-    const caloriesControl = scoreGroup.get('calories');
+    const weightCtrl = scoreGroup.get('weightKg');
+    const roundsCtrl = scoreGroup.get('rounds');
+    const finalTimeCtrl = scoreGroup.get('finalTime');
+    const distanceCtrl = scoreGroup.get('distanceMeters');
+    const caloriesCtrl = scoreGroup.get('calories');
 
     // Reset validations to baseline
-    weightControl?.setValidators([Validators.min(0)]);
-    roundsControl?.setValidators([Validators.min(0)]);
-    caloriesControl?.setValidators([Validators.min(0)]);
-    distanceControl?.setValidators([Validators.min(0)]);
-    finalTimeControl?.setValidators([Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
+    weightCtrl?.setValidators([Validators.min(0)]);
+    roundsCtrl?.setValidators([Validators.min(0)]);
+    caloriesCtrl?.setValidators([Validators.min(0)]);
+    distanceCtrl?.setValidators([Validators.min(0)]);
+    finalTimeCtrl?.setValidators([Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
 
-    // Apply strict requirements based on scoreType selection
     if (scoreType === 'weight') {
-      weightControl?.setValidators([Validators.required, Validators.min(0)]);
+      weightCtrl?.setValidators([Validators.required, Validators.min(0)]);
     } else if (scoreType === 'amrap') {
-      roundsControl?.setValidators([Validators.required, Validators.min(0)]);
+      roundsCtrl?.setValidators([Validators.required, Validators.min(0)]);
     } else if (scoreType === 'time') {
-      finalTimeControl?.setValidators([Validators.required, Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
+      finalTimeCtrl?.setValidators([Validators.required, Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
     } else if (scoreType === 'calories') {
-      caloriesControl?.setValidators([Validators.required, Validators.min(0)]);
+      caloriesCtrl?.setValidators([Validators.required, Validators.min(0)]);
     } else if (scoreType === 'distance') {
-      distanceControl?.setValidators([Validators.required, Validators.min(0)]);
+      distanceCtrl?.setValidators([Validators.required, Validators.min(0)]);
     }
 
-    weightControl?.updateValueAndValidity();
-    roundsControl?.updateValueAndValidity();
-    finalTimeControl?.updateValueAndValidity();
-    caloriesControl?.updateValueAndValidity();
-    distanceControl?.updateValueAndValidity();
+    weightCtrl?.updateValueAndValidity();
+    roundsCtrl?.updateValueAndValidity();
+    finalTimeCtrl?.updateValueAndValidity();
+    caloriesCtrl?.updateValueAndValidity();
+    distanceCtrl?.updateValueAndValidity();
   }
 
   onDisciplineChange(discipline: string): void {
@@ -184,23 +403,64 @@ export class WorkoutFormPage implements OnInit {
 
     const templateSections = this.templateService.getTemplateSections(discipline);
     templateSections.forEach((s, idx) => {
-      // Map legacy templates to support sections
       const defaultScore = { scoreType: s.type === SectionType.Wod ? 'amrap' : 'none' };
       this.addSection(s.type, s.name || '', s.exercises.join('\n'), defaultScore);
       
-      // Expand only the first block, collapse others
       if (idx > 0) {
         this.collapsedSections[idx] = true;
       }
     });
   }
 
+  // 6. Preview Formatting Helpers
+  getSectionIcon(type: SectionType): string {
+    switch (type) {
+      case SectionType.WarmUp:
+        return 'pi-heart';
+      case SectionType.Strength:
+      case SectionType.Weightlifting:
+        return 'pi-dumbbell';
+      case SectionType.Wod:
+      case SectionType.Metcon:
+        return 'pi-bolt';
+      case SectionType.Skill:
+      case SectionType.Technique:
+        return 'pi-star';
+      case SectionType.Accessory:
+        return 'pi-link';
+      case SectionType.Mobility:
+      case SectionType.Cooldown:
+        return 'pi-sync';
+      default:
+        return 'pi-tag';
+    }
+  }
+
+  getSectionColorClass(type: SectionType): string {
+    switch (type) {
+      case SectionType.WarmUp:
+        return 'section-warmup';
+      case SectionType.Strength:
+      case SectionType.Weightlifting:
+        return 'section-strength';
+      case SectionType.Wod:
+      case SectionType.Metcon:
+        return 'section-wod';
+      case SectionType.Skill:
+      case SectionType.Technique:
+        return 'section-skill';
+      case SectionType.Accessory:
+        return 'section-accessory';
+      case SectionType.Mobility:
+      case SectionType.Cooldown:
+        return 'section-mobility';
+      default:
+        return 'section-default';
+    }
+  }
+
   getSectionSummary(index: number): string {
     const section = this.sections.at(index) as FormGroup;
-    const typeValue = section.get('type')?.value;
-    const typeLabel = SECTION_TYPE_LABELS[typeValue as SectionType] || 'Bloque';
-    const name = section.get('name')?.value || '';
-
     const exRaw = section.get('exercisesRaw')?.value || '';
     const exCount = exRaw.split(/[,\n]/).map((e: string) => e.trim()).filter((e: string) => e.length > 0).length;
 
@@ -208,120 +468,76 @@ export class WorkoutFormPage implements OnInit {
     const scoreType = scoreGroup.get('scoreType')?.value;
     const sets = scoreGroup.get('sets')?.value;
 
-    let scoreStatus = 'Sin score';
-    if (this.scoreExpanded[index] && scoreType !== 'none') {
-      if (scoreGroup.invalid) {
-        scoreStatus = 'Score pendiente';
-      } else {
-        const val: string[] = [];
-        if (sets) val.push(`${sets} sets`);
-        
-        if (scoreType === 'weight' && scoreGroup.get('weightKg')?.value) {
-          val.push(`${scoreGroup.get('weightKg')?.value} kg`);
-        } else if (scoreType === 'time' && scoreGroup.get('finalTime')?.value) {
-          val.push(scoreGroup.get('finalTime')?.value);
-        } else if (scoreType === 'amrap' && scoreGroup.get('rounds')?.value) {
-          const repsComp = scoreGroup.get('repsCompleted')?.value;
-          val.push(repsComp ? `${scoreGroup.get('rounds')?.value} rds + ${repsComp} reps` : `${scoreGroup.get('rounds')?.value} rds`);
-        } else if (scoreType === 'calories' && scoreGroup.get('calories')?.value) {
-          val.push(`${scoreGroup.get('calories')?.value} cal`);
-        } else if (scoreType === 'distance' && scoreGroup.get('distanceMeters')?.value) {
-          val.push(`${scoreGroup.get('distanceMeters')?.value} m`);
-        }
-        scoreStatus = val.length > 0 ? `Score: ${val.join(' @ ')}` : 'Score guardado';
-      }
+    const val: string[] = [];
+    if (sets) val.push(`${sets} sets`);
+    
+    if (scoreType === 'weight' && scoreGroup.get('weightKg')?.value) {
+      val.push(`${scoreGroup.get('weightKg')?.value} kg`);
+    } else if (scoreType === 'time' && scoreGroup.get('finalTime')?.value) {
+      val.push(scoreGroup.get('finalTime')?.value);
+    } else if (scoreType === 'amrap' && scoreGroup.get('rounds')?.value) {
+      const repsComp = scoreGroup.get('repsCompleted')?.value;
+      val.push(repsComp ? `${scoreGroup.get('rounds')?.value} rds + ${repsComp} reps` : `${scoreGroup.get('rounds')?.value} rds`);
+    } else if (scoreType === 'calories' && scoreGroup.get('calories')?.value) {
+      val.push(`${scoreGroup.get('calories')?.value} cal`);
+    } else if (scoreType === 'distance' && scoreGroup.get('distanceMeters')?.value) {
+      val.push(`${scoreGroup.get('distanceMeters')?.value} m`);
     }
 
-    const exText = exCount === 1 ? 'movimiento' : 'movimientos';
-    const finalName = name ? `${name} (${typeLabel})` : typeLabel;
-    return `${finalName} · ${exCount} ${exText} · ${scoreStatus}`;
+    const scoreText = val.length > 0 ? ` · ${val.join(' @ ')}` : '';
+    const exText = exCount === 1 ? '1 ejercicio' : `${exCount} ejercicios`;
+
+    return `${exText}${scoreText}`;
   }
 
-  getSectionStatus(index: number): 'complete' | 'missing_data' | 'incomplete_score' | 'no_score' {
+  getSectionExercisesArray(index: number): string[] {
     const section = this.sections.at(index) as FormGroup;
-    const typeCtrl = section.get('type');
-    const nameCtrl = section.get('name');
-    const exCtrl = section.get('exercisesRaw');
+    const exRaw = section.get('exercisesRaw')?.value || '';
+    return exRaw.split('\n').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+  }
 
-    if (typeCtrl?.invalid || nameCtrl?.invalid || exCtrl?.invalid) {
-      return 'missing_data';
-    }
-
+  getSectionScoreDetailText(index: number): string {
+    const section = this.sections.at(index) as FormGroup;
     const scoreGroup = section.get('score') as FormGroup;
     const scoreType = scoreGroup.get('scoreType')?.value;
-
-    if (this.scoreExpanded[index] && scoreType !== 'none') {
-      return scoreGroup.invalid ? 'incomplete_score' : 'complete';
+    
+    if (scoreType === 'none') return '';
+    
+    const val: string[] = [];
+    if (scoreGroup.get('sets')?.value) {
+      val.push(`Series: ${scoreGroup.get('sets')?.value}`);
     }
-
-    return 'no_score';
+    if (scoreType === 'weight' && scoreGroup.get('weightKg')?.value) {
+      val.push(`Peso objetivo: ${scoreGroup.get('weightKg')?.value} kg`);
+    }
+    if (scoreType === 'amrap' && scoreGroup.get('rounds')?.value) {
+      val.push(`Formato: AMRAP ${scoreGroup.get('rounds')?.value}'`);
+    }
+    if (scoreType === 'time' && scoreGroup.get('finalTime')?.value) {
+      val.push(`Formato: Tiempo límite ${scoreGroup.get('finalTime')?.value}`);
+    }
+    return val.join(' · ');
   }
 
-  // Diagnostic helper to collect errors in clean Spanish labels
-  getInvalidFields(form: FormGroup): string[] {
-    const errors: string[] = [];
-
-    if (form.get('name')?.invalid) {
-      errors.push('Nombre de la sesión (obligatorio, mínimo 3 caracteres)');
-    }
-    if (form.get('type')?.invalid) {
-      errors.push('Tipo general de entrenamiento (requerido)');
-    }
-    if (form.get('discipline')?.invalid) {
-      errors.push('Plantilla / Disciplina de entrenamiento');
-    }
-    if (form.get('durationMinutes')?.invalid) {
-      errors.push('Duración total (debe estar entre 1 y 300 minutos)');
-    }
-    if (form.get('energyBefore')?.invalid || form.get('energyAfter')?.invalid) {
-      errors.push('Escala de energía al iniciar/terminar (valor de 1 a 10)');
-    }
-    if (form.get('perceivedDifficulty')?.invalid || form.get('perceivedIntensity')?.invalid) {
-      errors.push('Dificultad e intensidad percibidas (valor de 1 a 10)');
-    }
-
-    const sectionsArray = form.get('sections') as FormArray;
-    if (sectionsArray.length === 0) {
-      errors.push('El entrenamiento debe tener al menos una sección de ejercicios.');
-    } else {
-      sectionsArray.controls.forEach((ctrl, idx) => {
-        const sec = ctrl as FormGroup;
-        const name = sec.get('name')?.value || `Bloque #${idx + 1}`;
-        
-        if (sec.get('type')?.invalid) {
-          errors.push(`Tipo de bloque en "${name}" (requerido)`);
-        }
-        if (sec.get('name')?.invalid) {
-          errors.push(`Nombre de bloque en Sección #${idx + 1} (requerido)`);
-        }
-        if (sec.get('exercisesRaw')?.invalid) {
-          errors.push(`Movimientos / Ejercicios en "${name}" (requerido)`);
-        }
-
-        const scoreGroup = sec.get('score') as FormGroup;
-        if (scoreGroup.invalid) {
-          const scoreType = scoreGroup.get('scoreType')?.value;
-          if (scoreType === 'time') {
-            errors.push(`Marca de Tiempo Final en "${name}" (requerido con formato MM:SS)`);
-          } else if (scoreType === 'weight') {
-            errors.push(`Marca de Peso Máximo en "${name}" (requerido mayor a 0 kg)`);
-          } else if (scoreType === 'amrap') {
-            errors.push(`Marca de Rondas en "${name}" (requerido mayor a 0)`);
-          } else if (scoreType === 'calories') {
-            errors.push(`Marca de Calorías en "${name}" (requerido mayor a 0)`);
-          } else if (scoreType === 'distance') {
-            errors.push(`Marca de Distancia en "${name}" (requerido mayor a 0)`);
-          } else {
-            errors.push(`Valores numéricos de marcas inválidos en "${name}"`);
-          }
-        }
-      });
-    }
-
-    return errors;
+  // 7. Step Complete checks
+  get step1Complete(): boolean {
+    return !!(this.workoutForm.get('name')?.valid && this.workoutForm.get('date')?.valid && this.workoutForm.get('type')?.valid);
   }
 
-  // Developer console tree logger (only logs in devmode)
+  get step2Complete(): boolean {
+    return this.sections.length > 0;
+  }
+
+  get step3Complete(): boolean {
+    return this.sections.length > 0 && this.sections.controls.every(ctrl => ctrl.get('exercisesRaw')?.valid);
+  }
+
+  get step4Complete(): boolean {
+    const scoreType = this.workoutForm.get('scoreType')?.value;
+    return scoreType === 'none' || !!this.workoutForm.get('finalScore')?.valid;
+  }
+
+  // 8. Debugger console logger
   private logInvalidControls(group: FormGroup | FormArray, path: string = ''): void {
     if (!isDevMode()) return;
     
@@ -332,41 +548,39 @@ export class WorkoutFormPage implements OnInit {
       if (abstractControl instanceof FormGroup || abstractControl instanceof FormArray) {
         this.logInvalidControls(abstractControl, controlPath);
       } else if (abstractControl?.invalid) {
-        console.warn(`[QA Diagnostic] Campo Inválido: "${controlPath}" | Errores:`, abstractControl.errors);
+        console.warn(`[QA Wizard Diagnostic] Campo Inválido: "${controlPath}" | Errores:`, abstractControl.errors);
       }
     });
   }
 
   onSubmit(): void {
-    this.invalidFields = this.getInvalidFields(this.workoutForm);
-    
-    if (this.workoutForm.invalid || this.sections.length === 0) {
+    this.invalidFields = [];
+    this.showErrorSummary = false;
+
+    // Deep checks across all steps
+    if (!this.step1Complete) {
+      this.invalidFields.push('Paso 1: Completa los datos básicos obligatorios.');
+    }
+    if (!this.step2Complete) {
+      this.invalidFields.push('Paso 2: Agrega al menos una sección al entrenamiento.');
+    }
+    if (!this.step3Complete) {
+      this.invalidFields.push('Paso 3: Completa los movimientos de todas las secciones.');
+    }
+    if (!this.step4Complete) {
+      this.invalidFields.push('Paso 4: Ingresa el valor del resultado final para el score elegido.');
+    }
+
+    if (this.invalidFields.length > 0) {
       this.showErrorSummary = true;
       this.workoutForm.markAllAsTouched();
-      
-      // Auto expand sections containing invalid inputs so users can see the fields
-      this.sections.controls.forEach((control, idx) => {
-        if (control.invalid) {
-          this.collapsedSections[idx] = false;
-        }
-      });
-
-      // Log deep form tree errors in developer console
       this.logInvalidControls(this.workoutForm);
-
-      // Scroll smoothly to the first invalid field
-      setTimeout(() => {
-        const firstInvalid = document.querySelector('.ng-invalid:not(form)');
-        if (firstInvalid) {
-          firstInvalid.scrollIntoView({ behavior: 'smooth', block: 'center' });
-        }
-      }, 50);
       return;
     }
 
     const formValue = this.workoutForm.value;
     
-    // Map form sections array to TrainingSection[]
+    // Map FormArray to database TrainingSection[] format
     const sectionsData = this.sections.controls.map(control => {
       const val = control.value;
       const exercises = val.exercisesRaw
@@ -393,10 +607,9 @@ export class WorkoutFormPage implements OnInit {
       };
     });
 
-    const todayStr = new Date().toISOString().split('T')[0];
-
+    const parsedDate = new Date(); // Fallback if parsing fails
     const workout = WorkoutFactory.create({
-      date: todayStr,
+      date: formValue.date,
       type: formValue.type,
       name: formValue.name,
       durationMinutes: formValue.durationMinutes || undefined,
@@ -406,6 +619,10 @@ export class WorkoutFormPage implements OnInit {
       perceivedIntensity: formValue.perceivedIntensity,
       energyBefore: formValue.energyBefore,
       energyAfter: formValue.energyAfter,
+      // Map overall Step 4 score values if required
+      rounds: formValue.scoreType === 'amrap' ? Number(formValue.finalScore) : undefined,
+      finalTime: formValue.scoreType === 'time' ? formValue.finalScore : undefined,
+      weightKg: formValue.scoreType === 'weight' ? Number(formValue.finalScore) : undefined,
       notes: formValue.notes || undefined
     });
 
