@@ -118,10 +118,9 @@
               <label for="date">Fecha</label>
               <input 
                 id="date" 
-                type="text" 
+                type="date" 
                 pInputText 
                 formControlName="date" 
-                placeholder="Ej: 02 Jul 2026"
                 class="w-full"
               />
               @if (workoutForm.get('date')?.invalid && workoutForm.get('date')?.touched) {
@@ -183,7 +182,7 @@
           <div class="summary-content">
             <i class="pi pi-file-edit text-primary"></i>
             <span class="summary-text">
-              {{ workoutForm.get('name')?.value }} · {{ workoutForm.get('date')?.value }} · {{ workoutForm.get('type')?.value | uppercase }}
+              {{ workoutForm.get('name')?.value }} · {{ getFormattedDate(workoutForm.get('date')?.value) }} · {{ workoutForm.get('type')?.value | uppercase }}
             </span>
           </div>
           <button type="button" class="edit-link-btn" (click)="goToStep(1)">
@@ -303,7 +302,7 @@
           <div class="summary-content">
             <i class="pi pi-folder text-primary"></i>
             <span class="summary-text">
-              {{ workoutForm.get('name')?.value }} · {{ workoutForm.get('date')?.value }} · {{ workoutForm.get('type')?.value | uppercase }}
+              {{ workoutForm.get('name')?.value }} · {{ getFormattedDate(workoutForm.get('date')?.value) }} · {{ workoutForm.get('type')?.value | uppercase }}
             </span>
           </div>
           <span class="sections-count-badge">{{ sections.length }} secciones</span>
@@ -402,7 +401,7 @@
             <div class="summary-content">
               <i class="pi pi-trophy text-primary"></i>
               <span class="summary-text font-bold">
-                {{ workoutForm.get('name')?.value }} · {{ workoutForm.get('date')?.value }} · {{ workoutForm.get('type')?.value | uppercase }}
+                {{ workoutForm.get('name')?.value }} · {{ getFormattedDate(workoutForm.get('date')?.value) }} · {{ workoutForm.get('type')?.value | uppercase }}
               </span>
             </div>
           </div>

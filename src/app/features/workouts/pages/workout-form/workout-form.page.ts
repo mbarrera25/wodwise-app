@@ -45,7 +45,7 @@ export class WorkoutFormPage implements OnInit {
     name: ['', [Validators.required, Validators.minLength(3)]],
     type: [WorkoutType.Wod, Validators.required],
     discipline: ['custom', Validators.required],
-    date: [this.formatDate(new Date()), Validators.required],
+    date: [new Date().toISOString().split('T')[0], Validators.required],
     durationMinutes: [null, [Validators.min(1), Validators.max(300)]],
     // Step 4 final score fields
     scoreType: ['none'],
@@ -90,11 +90,15 @@ export class WorkoutFormPage implements OnInit {
     this.onDisciplineChange('custom');
   }
 
-  formatDate(date: Date): string {
-    const day = String(date.getDate()).padStart(2, '0');
+  getFormattedDate(dateStr: string): string {
+    if (!dateStr) return '';
+    const parts = dateStr.split('-');
+    if (parts.length !== 3) return dateStr;
+    const day = parts[2];
     const months = ['Ene', 'Feb', 'Mar', 'Abr', 'May', 'Jun', 'Jul', 'Ago', 'Sep', 'Oct', 'Nov', 'Dic'];
-    const month = months[date.getMonth()];
-    const year = date.getFullYear();
+    const monthIndex = parseInt(parts[1], 10) - 1;
+    const month = months[monthIndex] || parts[1];
+    const year = parts[0];
     return `${day} ${month} ${year}`;
   }
 
