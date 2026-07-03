@@ -2,9 +2,24 @@ import { Component, inject, OnInit, isDevMode } from '@angular/core';
 import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { WorkoutService } from '../../../../core/services/workout.service';
-import { TrainingTemplateService } from '../../../../core/services/training-template.service';
+import { BlockFactoryService } from '../../../../core/services/block-factory.service';
+import { BlockSummaryService } from '../../../../core/services/block-summary.service';
+import { TrainingValidationService } from '../../../../core/services/training-validation.service';
 import { WorkoutFactory } from '../../../../core/utils/factories';
-import { WorkoutType, WORKOUT_TYPE_LABELS, SectionType, SECTION_TYPE_LABELS } from '../../../../core/enums';
+import { 
+  Training, 
+  TrainingBlock, 
+  BlockType, 
+  WodFormat, 
+  ScoreType, 
+  WizardTrainingType,
+  WarmUpPrescription,
+  StrengthPrescription,
+  WodPrescription,
+  CardioPrescription,
+  FreePrescription
+} from '../../../../core/models';
+import { WorkoutType, SectionType } from '../../../../core/enums';
 import { CommonModule } from '@angular/common';
 
 import { InputText } from 'primeng/inputtext';
@@ -32,62 +47,143 @@ export class WorkoutFormPage implements OnInit {
   private readonly fb = inject(FormBuilder);
   private readonly router = inject(Router);
   private readonly workoutService = inject(WorkoutService);
-  private readonly templateService = inject(TrainingTemplateService);
+  private readonly factoryService = inject(BlockFactoryService);
+  private readonly summaryService = inject(BlockSummaryService);
+  private readonly validationService = inject(TrainingValidationService);
 
+  // Stepper state
   currentStep = 1;
 
-  // Active modal editing properties
-  isEditingSection = false;
-  activeEditIndex: number | null = null;
-  editSectionForm: FormGroup | null = null;
+  // Wizard Training draft state
+  activeTraining: Training = {
+    id: Math.random().toString(36).substring(2, 9),
+    name: 'CrossFit de hoy',
+    date: new Date().toISOString().split('T')[0],
+    trainingType: 'CROSSFIT',
+    status: 'DRAFT',
+    blocks: [],
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString()
+  };
 
-  readonly workoutForm: FormGroup = this.fb.group({
-    name: ['', [Validators.required, Validators.minLength(3)]],
-    type: [WorkoutType.Wod, Validators.required],
-    discipline: ['custom', Validators.required],
+  // Sub-screen (Block Editor) active states
+  isEditingBlock = false;
+  activeEditBlockIndex: number | null = null;
+  activeEditBlockType: BlockType = 'WOD';
+
+  // Wizard steps form groups
+  basicForm = this.fb.group({
+    name: ['CrossFit de hoy', [Validators.required, Validators.minLength(3)]],
     date: [new Date().toISOString().split('T')[0], Validators.required],
-    durationMinutes: [null, [Validators.min(1), Validators.max(300)]],
-    // Step 4 final score fields
-    scoreType: ['none'],
-    finalScore: [''],
-    perceivedDifficulty: [8, [Validators.required, Validators.min(1), Validators.max(10)]],
-    perceivedIntensity: [8, [Validators.required, Validators.min(1), Validators.max(10)]],
-    energyBefore: [7, [Validators.required, Validators.min(1), Validators.max(10)]],
-    energyAfter: [5, [Validators.required, Validators.min(1), Validators.max(10)]],
-    notes: [''],
-    sections: this.fb.array([])
+    trainingType: ['CROSSFIT' as WizardTrainingType, Validators.required]
   });
 
-  readonly workoutTypes = Object.entries(WORKOUT_TYPE_LABELS).map(([value, label]) => ({ label, value }));
-  readonly sectionTypes = Object.entries(SECTION_TYPE_LABELS).map(([value, label]) => ({ label, value }));
-  readonly difficultyOptions = Array.from({ length: 10 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }));
-  readonly disciplines = this.templateService.getDisciplines();
-  readonly SectionType = SectionType;
+  resultsForm = this.fb.group({});
 
-  readonly scoreTypes = [
-    { label: 'Ninguno / Libre', value: 'none' },
-    { label: 'Tiempo Final (MM:SS)', value: 'time' },
-    { label: 'Peso Máximo (kg)', value: 'weight' },
-    { label: 'Rondas + Reps (AMRAP)', value: 'amrap' },
-    { label: 'Calorías (cal)', value: 'calories' },
-    { label: 'Distancia (m)', value: 'distance' }
+  // Dynamic Block editor forms
+  warmUpForm = this.fb.group({
+    title: ['Warm-up', Validators.required],
+    inputType: ['TEXT' as 'TEXT' | 'EXERCISE_LIST'],
+    content: ['', Validators.required]
+  });
+
+  strengthForm = this.fb.group({
+    title: ['Strength', Validators.required],
+    exercise: ['', Validators.required],
+    sets: [5, [Validators.required, Validators.min(1)]],
+    reps: [5, [Validators.required, Validators.min(1)]],
+    targetWeightKg: [null as number | null],
+    restSeconds: [90],
+    notes: ['']
+  });
+
+  wodForm = this.fb.group({
+    title: ['WOD', Validators.required],
+    format: ['AMRAP' as WodFormat, Validators.required],
+    durationMinutes: [12],
+    timeCapMinutes: [null as number | null],
+    movements: ['', Validators.required],
+    scoreExpected: ['ROUNDS_REPS' as ScoreType, Validators.required],
+    notes: ['']
+  });
+
+  cardioForm = this.fb.group({
+    title: ['Cardio / Run', Validators.required],
+    modality: ['RUN' as any, Validators.required],
+    target: ['', Validators.required],
+    intensity: ['MODERATE' as any],
+    notes: ['']
+  });
+
+  freeForm = this.fb.group({
+    title: ['Trabajo libre', Validators.required],
+    text: ['', Validators.required]
+  });
+
+  // Select dropdown option arrays
+  readonly trainingTypes = [
+    { label: 'CrossFit', value: 'CROSSFIT' },
+    { label: 'Hyrox', value: 'HYROX' },
+    { label: 'Fuerza', value: 'STRENGTH' },
+    { label: 'Cardio', value: 'CARDIO' },
+    { label: 'Libre', value: 'FREE' }
   ];
 
-  // Collapsible tracking arrays for backward-compatibility representation
-  collapsedSections: boolean[] = [];
-  scoreExpanded: boolean[] = [];
+  readonly difficultyOptions = Array.from({ length: 10 }, (_, i) => ({ label: `${i + 1}`, value: i + 1 }));
 
-  // Error diagnostics
+  readonly wodFormats = [
+    { label: 'AMRAP', value: 'AMRAP' },
+    { label: 'EMOM', value: 'EMOM' },
+    { label: 'For Time', value: 'FOR_TIME' },
+    { label: 'Intervals', value: 'INTERVALS' },
+    { label: 'Chipper', value: 'CHIPPER' },
+    { label: 'Libre / Otro', value: 'FREE' }
+  ];
+
+  readonly scoreTypes = [
+    { label: 'Ninguno / Libre', value: 'NONE' },
+    { label: 'Tiempo Final', value: 'TIME' },
+    { label: 'Rondas + Reps', value: 'ROUNDS_REPS' },
+    { label: 'Repeticiones', value: 'REPS' },
+    { label: 'Calorías', value: 'CALORIES' },
+    { label: 'Distancia', value: 'DISTANCE' },
+    { label: 'Peso / Carga', value: 'LOAD' }
+  ];
+
+  readonly cardioModalities = [
+    { label: 'Correr (Run)', value: 'RUN' },
+    { label: 'Remar (Row)', value: 'ROW' },
+    { label: 'Bicicleta (Bike)', value: 'BIKE' },
+    { label: 'Esquiar (Ski)', value: 'SKI' },
+    { label: 'Caminar (Walk)', value: 'WALK' },
+    { label: 'Otro', value: 'OTHER' }
+  ];
+
+  readonly intensityOptions = [
+    { label: 'Suave / Baja', value: 'LOW' },
+    { label: 'Moderada', value: 'MODERATE' },
+    { label: 'Exigente / Alta', value: 'HIGH' }
+  ];
+
+  readonly scalingOptions = [
+    { label: 'Rx (Como prescrito)', value: 'RX' },
+    { label: 'Escalado', value: 'SCALED' }
+  ];
+
+  // Error diagnostic listings
   showErrorSummary = false;
   invalidFields: string[] = [];
 
-  get sections(): FormArray {
-    return this.workoutForm.get('sections') as FormArray;
-  }
-
   ngOnInit(): void {
-    // Initialize with Custom template
-    this.onDisciplineChange('custom');
+    // Set default initial template setup
+    this.selectQuickTemplate('crossfit');
+
+    // Watch basic form changes to sync with activeTraining state
+    this.basicForm.valueChanges.subscribe(val => {
+      this.activeTraining.name = val.name || '';
+      this.activeTraining.date = val.date || '';
+      this.activeTraining.trainingType = val.trainingType || 'CROSSFIT';
+    });
   }
 
   getFormattedDate(dateStr: string): string {
@@ -102,74 +198,86 @@ export class WorkoutFormPage implements OnInit {
     return `${day} ${month} ${year}`;
   }
 
-  // 1. Quick Template Selector (Chips)
+  getScoreTypeLabel(scoreType?: string): string {
+    const found = this.scoreTypes.find(s => s.value === scoreType);
+    return found ? found.label : (scoreType || 'Ninguno / Libre');
+  }
+
+  // 1. Quick Template Selector (Step 1 Chips)
   selectQuickTemplate(templateName: string): void {
     if (templateName === 'crossfit') {
-      this.workoutForm.patchValue({
+      this.basicForm.patchValue({
         name: 'CrossFit de hoy',
-        type: WorkoutType.Wod,
-        discipline: 'crossfit'
+        trainingType: 'CROSSFIT'
       });
-      this.onDisciplineChange('crossfit');
+      this.activeTraining.blocks = [
+        this.factoryService.createBlock('WARM_UP', 1, 'Warm-up'),
+        this.factoryService.createBlock('STRENGTH', 2, 'Strength'),
+        this.factoryService.createBlock('WOD', 3, 'WOD')
+      ];
+      // Pre-fill exercises
+      (this.activeTraining.blocks[0].prescription as WarmUpPrescription).content = '3 rounds · 10 air squats · 10 push-ups · 200m run';
+      (this.activeTraining.blocks[1].prescription as StrengthPrescription).exercise = 'Back Squat';
+      (this.activeTraining.blocks[2].prescription as WodPrescription).movements = '10 wall balls · 8 burpees · 6 box jumps';
     } else if (templateName === 'hyrox') {
-      this.workoutForm.patchValue({
+      this.basicForm.patchValue({
         name: 'Hyrox del día',
-        type: WorkoutType.Cardio,
-        discipline: 'hyrox'
+        trainingType: 'HYROX'
       });
-      this.onDisciplineChange('hyrox');
+      this.activeTraining.blocks = [
+        this.factoryService.createBlock('WARM_UP', 1, 'Warm-up'),
+        this.factoryService.createBlock('CARDIO', 2, 'Cardio / Run'),
+        this.factoryService.createBlock('WOD', 3, 'Estaciones')
+      ];
+      (this.activeTraining.blocks[0].prescription as WarmUpPrescription).content = 'Calentamiento articular y trote ligero';
+      (this.activeTraining.blocks[1].prescription as CardioPrescription).modality = 'RUN';
+      (this.activeTraining.blocks[1].prescription as CardioPrescription).target = '800 m';
+      (this.activeTraining.blocks[2].prescription as WodPrescription).format = 'FREE';
+      (this.activeTraining.blocks[2].prescription as WodPrescription).movements = 'Burpee Broad Jumps · Sandbag Lunges';
     } else if (templateName === 'strength') {
-      this.workoutForm.patchValue({
+      this.basicForm.patchValue({
         name: 'Fuerza del día',
-        type: WorkoutType.Strength,
-        discipline: 'strength'
+        trainingType: 'STRENGTH'
       });
-      this.onDisciplineChange('strength');
+      this.activeTraining.blocks = [
+        this.factoryService.createBlock('WARM_UP', 1, 'Calentamiento'),
+        this.factoryService.createBlock('STRENGTH', 2, 'Strength')
+      ];
+      (this.activeTraining.blocks[0].prescription as WarmUpPrescription).content = 'Movilidad y aproximaciones';
+      (this.activeTraining.blocks[1].prescription as StrengthPrescription).exercise = 'Back Squat';
     } else {
-      this.workoutForm.patchValue({
+      this.basicForm.patchValue({
         name: 'Entrenamiento libre',
-        type: WorkoutType.Wod,
-        discipline: 'custom'
+        trainingType: 'FREE'
       });
-      this.onDisciplineChange('custom');
+      this.activeTraining.blocks = [
+        this.factoryService.createBlock('FREE', 1, 'Trabajo libre')
+      ];
+      (this.activeTraining.blocks[0].prescription as FreePrescription).text = 'Movilidad de hombros y handstand';
     }
   }
 
-  // 2. Navigation Flow controls
+  // 2. Wizard Step Navigation controls
   nextStep(): void {
     this.showErrorSummary = false;
     this.invalidFields = [];
 
     if (this.currentStep === 1) {
-      const nameValid = this.workoutForm.get('name')?.valid;
-      const dateValid = this.workoutForm.get('date')?.valid;
-      const typeValid = this.workoutForm.get('type')?.valid;
-
-      if (nameValid && dateValid && typeValid) {
+      const step1Errors = this.validationService.validateStep1(this.activeTraining);
+      if (step1Errors.length === 0) {
         this.currentStep = 2;
       } else {
-        this.workoutForm.get('name')?.markAsTouched();
-        this.workoutForm.get('date')?.markAsTouched();
-        this.workoutForm.get('type')?.markAsTouched();
-        this.invalidFields = ['Faltan datos obligatorios del paso 1.'];
+        this.basicForm.markAllAsTouched();
+        this.invalidFields = step1Errors;
         this.showErrorSummary = true;
       }
     } else if (this.currentStep === 2) {
-      if (this.sections.length > 0) {
+      const step2Errors = this.validationService.validateStep2(this.activeTraining);
+      if (step2Errors.length === 0) {
         this.currentStep = 3;
+        this.rebuildResultsForm(); // Initialize Step 3 validation forms
       } else {
-        this.invalidFields = ['Debes agregar al menos una sección.'];
-        this.showErrorSummary = true;
-      }
-    } else if (this.currentStep === 3) {
-      // Validate all sections have exercises raw
-      const hasEmptySection = this.sections.controls.some(ctrl => ctrl.get('exercisesRaw')?.invalid);
-      if (!hasEmptySection) {
-        this.currentStep = 4;
-        this.onStep4ScoreTypeChange(); // Initialize Step 4 validators
-      } else {
-        this.sections.controls.forEach(ctrl => ctrl.get('exercisesRaw')?.markAsTouched());
-        this.invalidFields = ['Todas las secciones agregadas deben tener movimientos.'];
+        this.invalidFields = step2Errors;
         this.showErrorSummary = true;
       }
     }
@@ -183,455 +291,420 @@ export class WorkoutFormPage implements OnInit {
   }
 
   goToStep(step: number): void {
-    // Basic validation guard when attempting to jump steps directly
     if (step === 2 && !this.step1Complete) return;
     if (step === 3 && (!this.step1Complete || !this.step2Complete)) return;
-    if (step === 4 && (!this.step1Complete || !this.step2Complete || !this.step3Complete)) return;
     
     this.showErrorSummary = false;
     this.currentStep = step;
-  }
-
-  // 3. Section control actions
-  addSection(type: SectionType = SectionType.Wod, name: string = '', exercisesRaw: string = '', score: any = {}): void {
-    const sectionGroup = this.fb.group({
-      type: [type, Validators.required],
-      name: [name || this.getDefaultSectionName(type), Validators.required],
-      exercisesRaw: [exercisesRaw, Validators.required],
-      score: this.fb.group({
-        scoreType: [score.scoreType || 'none'],
-        sets: [score.sets || null, Validators.min(0)],
-        weightKg: [score.weightKg || null, [Validators.min(0)]],
-        reps: [score.reps || null, [Validators.min(0)]],
-        rounds: [score.rounds || null, [Validators.min(0)]],
-        repsCompleted: [score.repsCompleted || null, [Validators.min(0)]],
-        finalTime: [score.finalTime || '', [Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]],
-        distanceMeters: [score.distanceMeters || null, [Validators.min(0)]],
-        calories: [score.calories || null, [Validators.min(0)]],
-        notes: [score.notes || '']
-      })
-    });
-    this.sections.push(sectionGroup);
-
-    this.collapsedSections.push(false);
-    this.scoreExpanded.push(false);
-  }
-
-  getDefaultSectionName(type: SectionType): string {
-    return SECTION_TYPE_LABELS[type] || 'Nueva Sección';
-  }
-
-  removeSection(index: number): void {
-    if (this.sections.length > 1) {
-      this.sections.removeAt(index);
-      this.collapsedSections.splice(index, 1);
-      this.scoreExpanded.splice(index, 1);
+    if (step === 3) {
+      this.rebuildResultsForm();
     }
   }
 
-  moveSectionUp(index: number): void {
+  // 3. Block list actions (Step 2)
+  addBlock(type: BlockType): void {
+    const order = this.activeTraining.blocks.length + 1;
+    const newBlock = this.factoryService.createBlock(type, order);
+    
+    this.activeTraining.blocks.push(newBlock);
+    
+    // Jump straight to the sub-screen editor for the new block
+    this.openEditBlockSubscreen(this.activeTraining.blocks.length - 1);
+  }
+
+  deleteBlock(index: number): void {
+    if (confirm('¿Estás seguro de que quieres eliminar este bloque?')) {
+      this.activeTraining.blocks.splice(index, 1);
+      // Re-map orders
+      this.activeTraining.blocks.forEach((b, idx) => b.order = idx + 1);
+    }
+  }
+
+  moveBlockUp(index: number): void {
     if (index === 0) return;
-    const current = this.sections.at(index);
-    this.sections.removeAt(index);
-    this.sections.insert(index - 1, current);
-
-    // Swap expanded lists
-    const colVal = this.collapsedSections[index];
-    this.collapsedSections[index] = this.collapsedSections[index - 1];
-    this.collapsedSections[index - 1] = colVal;
-  }
-
-  moveSectionDown(index: number): void {
-    if (index === this.sections.length - 1) return;
-    const current = this.sections.at(index);
-    this.sections.removeAt(index);
-    this.sections.insert(index + 1, current);
-
-    // Swap expanded lists
-    const colVal = this.collapsedSections[index];
-    this.collapsedSections[index] = this.collapsedSections[index + 1];
-    this.collapsedSections[index + 1] = colVal;
-  }
-
-  // 4. Modal Section Editing Actions
-  openEditSectionModal(index: number): void {
-    this.activeEditIndex = index;
-    const sec = this.sections.at(index) as FormGroup;
-    const scoreGroup = sec.get('score') as FormGroup;
-
-    this.editSectionForm = this.fb.group({
-      type: [sec.get('type')?.value, Validators.required],
-      name: [sec.get('name')?.value, Validators.required],
-      exercisesRaw: [sec.get('exercisesRaw')?.value, Validators.required],
-      scoreType: [scoreGroup.get('scoreType')?.value || 'none'],
-      sets: [scoreGroup.get('sets')?.value || null, Validators.min(0)],
-      weightKg: [scoreGroup.get('weightKg')?.value || null, Validators.min(0)],
-      reps: [scoreGroup.get('reps')?.value || null, Validators.min(0)],
-      rounds: [scoreGroup.get('rounds')?.value || null, Validators.min(0)],
-      repsCompleted: [scoreGroup.get('repsCompleted')?.value || null, Validators.min(0)],
-      finalTime: [scoreGroup.get('finalTime')?.value || '', Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)],
-      distanceMeters: [scoreGroup.get('distanceMeters')?.value || null, Validators.min(0)],
-      calories: [scoreGroup.get('calories')?.value || null, Validators.min(0)],
-      notes: [scoreGroup.get('notes')?.value || '']
-    });
-
-    this.onModalScoreTypeChange();
-    this.isEditingSection = true;
-  }
-
-  onModalScoreTypeChange(): void {
-    if (!this.editSectionForm) return;
-
-    const scoreType = this.editSectionForm.get('scoreType')?.value;
-    const weightCtrl = this.editSectionForm.get('weightKg');
-    const roundsCtrl = this.editSectionForm.get('rounds');
-    const finalTimeCtrl = this.editSectionForm.get('finalTime');
-    const distanceCtrl = this.editSectionForm.get('distanceMeters');
-    const caloriesCtrl = this.editSectionForm.get('calories');
-
-    // Reset validations to baseline
-    weightCtrl?.setValidators([Validators.min(0)]);
-    roundsCtrl?.setValidators([Validators.min(0)]);
-    caloriesCtrl?.setValidators([Validators.min(0)]);
-    distanceCtrl?.setValidators([Validators.min(0)]);
-    finalTimeCtrl?.setValidators([Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
-
-    if (scoreType === 'weight') {
-      weightCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    } else if (scoreType === 'amrap') {
-      roundsCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    } else if (scoreType === 'time') {
-      finalTimeCtrl?.setValidators([Validators.required, Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
-    } else if (scoreType === 'calories') {
-      caloriesCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    } else if (scoreType === 'distance') {
-      distanceCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    }
-
-    weightCtrl?.updateValueAndValidity();
-    roundsCtrl?.updateValueAndValidity();
-    finalTimeCtrl?.updateValueAndValidity();
-    caloriesCtrl?.updateValueAndValidity();
-    distanceCtrl?.updateValueAndValidity();
-  }
-
-  saveSectionEdit(): void {
-    if (!this.editSectionForm || this.editSectionForm.invalid || this.activeEditIndex === null) {
-      this.editSectionForm?.markAllAsTouched();
-      return;
-    }
-
-    const val = this.editSectionForm.value;
-    const sec = this.sections.at(this.activeEditIndex) as FormGroup;
+    const current = this.activeTraining.blocks[index];
+    this.activeTraining.blocks.splice(index, 1);
+    this.activeTraining.blocks.splice(index - 1, 0, current);
     
-    sec.get('type')?.setValue(val.type);
-    sec.get('name')?.setValue(val.name);
-    sec.get('exercisesRaw')?.setValue(val.exercisesRaw);
-
-    const scoreGroup = sec.get('score') as FormGroup;
-    scoreGroup.get('scoreType')?.setValue(val.scoreType);
-    scoreGroup.get('sets')?.setValue(val.sets);
-    scoreGroup.get('weightKg')?.setValue(val.weightKg);
-    scoreGroup.get('reps')?.setValue(val.reps);
-    scoreGroup.get('rounds')?.setValue(val.rounds);
-    scoreGroup.get('repsCompleted')?.setValue(val.repsCompleted);
-    scoreGroup.get('finalTime')?.setValue(val.finalTime);
-    scoreGroup.get('distanceMeters')?.setValue(val.distanceMeters);
-    scoreGroup.get('calories')?.setValue(val.calories);
-    scoreGroup.get('notes')?.setValue(val.notes);
-
-    this.onScoreTypeChange(this.activeEditIndex);
-    this.isEditingSection = false;
-    this.activeEditIndex = null;
+    // Re-map orders
+    this.activeTraining.blocks.forEach((b, idx) => b.order = idx + 1);
   }
 
-  closeEditSectionModal(): void {
-    this.isEditingSection = false;
-    this.activeEditIndex = null;
-  }
-
-  // 5. General score configuration in Step 4
-  onStep4ScoreTypeChange(): void {
-    const scoreType = this.workoutForm.get('scoreType')?.value;
-    const finalScoreCtrl = this.workoutForm.get('finalScore');
+  moveBlockDown(index: number): void {
+    if (index === this.activeTraining.blocks.length - 1) return;
+    const current = this.activeTraining.blocks[index];
+    this.activeTraining.blocks.splice(index, 1);
+    this.activeTraining.blocks.splice(index + 1, 0, current);
     
-    if (scoreType === 'none') {
-      finalScoreCtrl?.clearValidators();
-    } else {
-      finalScoreCtrl?.setValidators([Validators.required]);
-    }
-    finalScoreCtrl?.updateValueAndValidity();
+    // Re-map orders
+    this.activeTraining.blocks.forEach((b, idx) => b.order = idx + 1);
   }
 
-  onScoreTypeChange(index: number): void {
-    const section = this.sections.at(index) as FormGroup;
-    const scoreGroup = section.get('score') as FormGroup;
-    const scoreType = scoreGroup.get('scoreType')?.value;
-
-    const weightCtrl = scoreGroup.get('weightKg');
-    const roundsCtrl = scoreGroup.get('rounds');
-    const finalTimeCtrl = scoreGroup.get('finalTime');
-    const distanceCtrl = scoreGroup.get('distanceMeters');
-    const caloriesCtrl = scoreGroup.get('calories');
-
-    // Reset validations to baseline
-    weightCtrl?.setValidators([Validators.min(0)]);
-    roundsCtrl?.setValidators([Validators.min(0)]);
-    caloriesCtrl?.setValidators([Validators.min(0)]);
-    distanceCtrl?.setValidators([Validators.min(0)]);
-    finalTimeCtrl?.setValidators([Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
-
-    if (scoreType === 'weight') {
-      weightCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    } else if (scoreType === 'amrap') {
-      roundsCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    } else if (scoreType === 'time') {
-      finalTimeCtrl?.setValidators([Validators.required, Validators.pattern(/^([0-9]{1,2}):([0-9]{2})$/)]);
-    } else if (scoreType === 'calories') {
-      caloriesCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    } else if (scoreType === 'distance') {
-      distanceCtrl?.setValidators([Validators.required, Validators.min(0)]);
-    }
-
-    weightCtrl?.updateValueAndValidity();
-    roundsCtrl?.updateValueAndValidity();
-    finalTimeCtrl?.updateValueAndValidity();
-    caloriesCtrl?.updateValueAndValidity();
-    distanceCtrl?.updateValueAndValidity();
+  getBlockSummary(block: TrainingBlock): string {
+    return this.summaryService.getBlockSummary(block);
   }
 
-  onDisciplineChange(discipline: string): void {
-    this.sections.clear();
-    this.collapsedSections = [];
-    this.scoreExpanded = [];
-
-    const templateSections = this.templateService.getTemplateSections(discipline);
-    templateSections.forEach((s, idx) => {
-      const defaultScore = { scoreType: s.type === SectionType.Wod ? 'amrap' : 'none' };
-      this.addSection(s.type, s.name || '', s.exercises.join('\n'), defaultScore);
-      
-      if (idx > 0) {
-        this.collapsedSections[idx] = true;
-      }
-    });
-  }
-
-  // 6. Preview Formatting Helpers
-  getSectionIcon(type: SectionType): string {
+  getBlockIcon(type: BlockType): string {
     switch (type) {
-      case SectionType.WarmUp:
+      case 'WARM_UP':
         return 'pi-heart';
-      case SectionType.Strength:
-      case SectionType.Weightlifting:
+      case 'STRENGTH':
+      case 'SKILL':
+      case 'ACCESSORY':
         return 'pi-dumbbell';
-      case SectionType.Wod:
-      case SectionType.Metcon:
+      case 'WOD':
         return 'pi-bolt';
-      case SectionType.Skill:
-      case SectionType.Technique:
-        return 'pi-star';
-      case SectionType.Accessory:
-        return 'pi-link';
-      case SectionType.Mobility:
-      case SectionType.Cooldown:
+      case 'CARDIO':
         return 'pi-sync';
       default:
         return 'pi-tag';
     }
   }
 
-  getSectionColorClass(type: SectionType): string {
+  getBlockColorClass(type: BlockType): string {
     switch (type) {
-      case SectionType.WarmUp:
-        return 'section-warmup';
-      case SectionType.Strength:
-      case SectionType.Weightlifting:
-        return 'section-strength';
-      case SectionType.Wod:
-      case SectionType.Metcon:
-        return 'section-wod';
-      case SectionType.Skill:
-      case SectionType.Technique:
-        return 'section-skill';
-      case SectionType.Accessory:
-        return 'section-accessory';
-      case SectionType.Mobility:
-      case SectionType.Cooldown:
-        return 'section-mobility';
-      default:
-        return 'section-default';
+      case 'WARM_UP': return 'warmup';
+      case 'STRENGTH': return 'strength';
+      case 'WOD': return 'wod';
+      case 'CARDIO': return 'cardio';
+      default: return 'free';
     }
   }
 
-  getSectionSummary(index: number): string {
-    const section = this.sections.at(index) as FormGroup;
-    const exRaw = section.get('exercisesRaw')?.value || '';
-    const exCount = exRaw.split(/[,\n]/).map((e: string) => e.trim()).filter((e: string) => e.length > 0).length;
+  // 4. Subscreen Editor handlers (Step 2 subview)
+  openEditBlockSubscreen(index: number): void {
+    this.activeEditBlockIndex = index;
+    const block = this.activeTraining.blocks[index];
+    this.activeEditBlockType = block.type;
+    this.isEditingBlock = true;
 
-    const scoreGroup = section.get('score') as FormGroup;
-    const scoreType = scoreGroup.get('scoreType')?.value;
-    const sets = scoreGroup.get('sets')?.value;
+    // Load active prescription values into target form group
+    const p = block.prescription;
+    if (block.type === 'WARM_UP' && p.kind === 'WARM_UP') {
+      this.warmUpForm.patchValue({
+        title: block.title,
+        inputType: p.inputType,
+        content: p.content
+      });
+    } else if (block.type === 'STRENGTH' && p.kind === 'STRENGTH') {
+      this.strengthForm.patchValue({
+        title: block.title,
+        exercise: p.exercise,
+        sets: p.sets,
+        reps: p.reps,
+        targetWeightKg: p.targetWeightKg || null,
+        restSeconds: p.restSeconds || 90,
+        notes: p.notes || ''
+      });
+    } else if (block.type === 'WOD' && p.kind === 'WOD') {
+      this.wodForm.patchValue({
+        title: block.title,
+        format: p.format,
+        durationMinutes: p.durationMinutes || 12,
+        timeCapMinutes: p.timeCapMinutes || null,
+        movements: p.movements,
+        scoreExpected: block.scoreExpected || 'ROUNDS_REPS',
+        notes: p.notes || ''
+      });
+    } else if (block.type === 'CARDIO' && p.kind === 'CARDIO') {
+      this.cardioForm.patchValue({
+        title: block.title,
+        modality: p.modality,
+        target: p.target,
+        intensity: p.intensity || 'MODERATE',
+        notes: p.notes || ''
+      });
+    } else {
+      // Free or other
+      const textVal = p.kind === 'FREE' ? p.text : '';
+      this.freeForm.patchValue({
+        title: block.title,
+        text: textVal
+      });
+    }
+  }
 
-    const val: string[] = [];
-    if (sets) val.push(`${sets} sets`);
+  saveBlockPrescription(): void {
+    if (this.activeEditBlockIndex === null) return;
     
-    if (scoreType === 'weight' && scoreGroup.get('weightKg')?.value) {
-      val.push(`${scoreGroup.get('weightKg')?.value} kg`);
-    } else if (scoreType === 'time' && scoreGroup.get('finalTime')?.value) {
-      val.push(scoreGroup.get('finalTime')?.value);
-    } else if (scoreType === 'amrap' && scoreGroup.get('rounds')?.value) {
-      const repsComp = scoreGroup.get('repsCompleted')?.value;
-      val.push(repsComp ? `${scoreGroup.get('rounds')?.value} rds + ${repsComp} reps` : `${scoreGroup.get('rounds')?.value} rds`);
-    } else if (scoreType === 'calories' && scoreGroup.get('calories')?.value) {
-      val.push(`${scoreGroup.get('calories')?.value} cal`);
-    } else if (scoreType === 'distance' && scoreGroup.get('distanceMeters')?.value) {
-      val.push(`${scoreGroup.get('distanceMeters')?.value} m`);
+    const block = this.activeTraining.blocks[this.activeEditBlockIndex];
+
+    if (block.type === 'WARM_UP') {
+      if (this.warmUpForm.invalid) { this.warmUpForm.markAllAsTouched(); return; }
+      const val = this.warmUpForm.value;
+      block.title = val.title || 'Warm-up';
+      block.prescription = {
+        kind: 'WARM_UP',
+        inputType: val.inputType || 'TEXT',
+        content: val.content || ''
+      };
+      block.requiresResult = false;
+    } else if (block.type === 'STRENGTH') {
+      if (this.strengthForm.invalid) { this.strengthForm.markAllAsTouched(); return; }
+      const val = this.strengthForm.value;
+      block.title = val.title || 'Strength';
+      block.prescription = {
+        kind: 'STRENGTH',
+        exercise: val.exercise || '',
+        sets: val.sets || 5,
+        reps: val.reps || 5,
+        targetWeightKg: val.targetWeightKg || undefined,
+        restSeconds: val.restSeconds || undefined,
+        notes: val.notes || ''
+      };
+      block.scoreExpected = 'LOAD';
+      block.requiresResult = true;
+    } else if (block.type === 'WOD') {
+      if (this.wodForm.invalid) { this.wodForm.markAllAsTouched(); return; }
+      const val = this.wodForm.value;
+      block.title = val.title || 'WOD';
+      block.prescription = {
+        kind: 'WOD',
+        format: val.format || 'AMRAP',
+        durationMinutes: val.durationMinutes || undefined,
+        timeCapMinutes: val.timeCapMinutes || undefined,
+        movements: val.movements || '',
+        scoreExpected: val.scoreExpected || 'ROUNDS_REPS',
+        notes: val.notes || ''
+      };
+      block.scoreExpected = val.scoreExpected || 'ROUNDS_REPS';
+      block.requiresResult = block.scoreExpected !== 'NONE';
+    } else if (block.type === 'CARDIO') {
+      if (this.cardioForm.invalid) { this.cardioForm.markAllAsTouched(); return; }
+      const val = this.cardioForm.value;
+      block.title = val.title || 'Cardio';
+      block.prescription = {
+        kind: 'CARDIO',
+        modality: val.modality || 'RUN',
+        target: val.target || '',
+        intensity: val.intensity || 'MODERATE',
+        notes: val.notes || ''
+      };
+      block.scoreExpected = 'TIME';
+      block.requiresResult = true;
+    } else {
+      if (this.freeForm.invalid) { this.freeForm.markAllAsTouched(); return; }
+      const val = this.freeForm.value;
+      block.title = val.title || 'Trabajo libre';
+      block.prescription = {
+        kind: 'FREE',
+        text: val.text || ''
+      };
+      block.requiresResult = false;
     }
 
-    const scoreText = val.length > 0 ? ` · ${val.join(' @ ')}` : '';
-    const exText = exCount === 1 ? '1 ejercicio' : `${exCount} ejercicios`;
-
-    return `${exText}${scoreText}`;
+    this.isEditingBlock = false;
+    this.activeEditBlockIndex = null;
   }
 
-  getSectionExercisesArray(index: number): string[] {
-    const section = this.sections.at(index) as FormGroup;
-    const exRaw = section.get('exercisesRaw')?.value || '';
-    return exRaw.split('\n').map((e: string) => e.trim()).filter((e: string) => e.length > 0);
+  cancelBlockEdit(): void {
+    this.isEditingBlock = false;
+    this.activeEditBlockIndex = null;
   }
 
-  getSectionScoreDetailText(index: number): string {
-    const section = this.sections.at(index) as FormGroup;
-    const scoreGroup = section.get('score') as FormGroup;
-    const scoreType = scoreGroup.get('scoreType')?.value;
-    
-    if (scoreType === 'none') return '';
-    
-    const val: string[] = [];
-    if (scoreGroup.get('sets')?.value) {
-      val.push(`Series: ${scoreGroup.get('sets')?.value}`);
-    }
-    if (scoreType === 'weight' && scoreGroup.get('weightKg')?.value) {
-      val.push(`Peso objetivo: ${scoreGroup.get('weightKg')?.value} kg`);
-    }
-    if (scoreType === 'amrap' && scoreGroup.get('rounds')?.value) {
-      val.push(`Formato: AMRAP ${scoreGroup.get('rounds')?.value}'`);
-    }
-    if (scoreType === 'time' && scoreGroup.get('finalTime')?.value) {
-      val.push(`Formato: Tiempo límite ${scoreGroup.get('finalTime')?.value}`);
-    }
-    return val.join(' · ');
+  // 5. Result dynamic form rebuilding (Step 3)
+  rebuildResultsForm(): void {
+    const group: any = {};
+    this.activeTraining.blocks.forEach(block => {
+      if (block.requiresResult) {
+        group[block.id] = this.fb.group({
+          value: [block.result?.value || '', Validators.required],
+          rpe: [block.result?.rpe || 8, [Validators.required, Validators.min(1), Validators.max(10)]],
+          scaling: [block.result?.scaling || 'RX'],
+          notes: [block.result?.notes || '']
+        });
+      }
+    });
+    this.resultsForm = this.fb.group(group);
   }
 
-  // 7. Step Complete checks
+  getResultGroup(blockId: string): FormGroup {
+    return this.resultsForm.get(blockId) as FormGroup;
+  }
+
+  // 6. Step completion status indicators
   get step1Complete(): boolean {
-    return !!(this.workoutForm.get('name')?.valid && this.workoutForm.get('date')?.valid && this.workoutForm.get('type')?.valid);
+    return this.validationService.validateStep1(this.activeTraining).length === 0;
   }
 
   get step2Complete(): boolean {
-    return this.sections.length > 0;
+    return this.validationService.validateStep2(this.activeTraining).length === 0;
   }
 
   get step3Complete(): boolean {
-    return this.sections.length > 0 && this.sections.controls.every(ctrl => ctrl.get('exercisesRaw')?.valid);
-  }
-
-  get step4Complete(): boolean {
-    const scoreType = this.workoutForm.get('scoreType')?.value;
-    return scoreType === 'none' || !!this.workoutForm.get('finalScore')?.valid;
-  }
-
-  // 8. Debugger console logger
-  private logInvalidControls(group: FormGroup | FormArray, path: string = ''): void {
-    if (!isDevMode()) return;
+    const step3Errors = this.validationService.validateStep3(this.activeTraining);
     
-    Object.keys(group.controls).forEach(key => {
-      const abstractControl = group.get(key);
-      const controlPath = path ? `${path}.${key}` : key;
-      
-      if (abstractControl instanceof FormGroup || abstractControl instanceof FormArray) {
-        this.logInvalidControls(abstractControl, controlPath);
-      } else if (abstractControl?.invalid) {
-        console.warn(`[QA Wizard Diagnostic] Campo Inválido: "${controlPath}" | Errores:`, abstractControl.errors);
-      }
-    });
+    // Check resultsForm validation status if we are on step 3
+    if (this.currentStep === 3) {
+      return this.resultsForm.valid && step3Errors.length === 0;
+    }
+    
+    return step3Errors.length === 0;
   }
 
+  get blocksRequiringResults(): TrainingBlock[] {
+    return this.activeTraining.blocks.filter(b => b.requiresResult);
+  }
+
+  getFormattedModality(val: string): string {
+    const found = this.cardioModalities.find(m => m.value === val);
+    return found ? found.label : val;
+  }
+
+  // 7. Relational Model Compiler & Save
   onSubmit(): void {
     this.invalidFields = [];
     this.showErrorSummary = false;
 
-    // Deep checks across all steps
-    if (!this.step1Complete) {
-      this.invalidFields.push('Paso 1: Completa los datos básicos obligatorios.');
+    // Check final wizard completeness
+    const step1Errors = this.validationService.validateStep1(this.activeTraining);
+    const step2Errors = this.validationService.validateStep2(this.activeTraining);
+    
+    // Save current values in the resultsForm back into the activeTraining state
+    if (this.resultsForm.valid) {
+      this.activeTraining.blocks.forEach(block => {
+        if (block.requiresResult) {
+          const resVal = this.resultsForm.get(block.id)?.value;
+          if (resVal) {
+            block.result = {
+              scoreType: block.scoreExpected || 'NONE',
+              value: resVal.value || '',
+              rpe: Number(resVal.rpe || 8),
+              scaling: resVal.scaling || 'RX',
+              notes: resVal.notes || ''
+            };
+          }
+        }
+      });
     }
-    if (!this.step2Complete) {
-      this.invalidFields.push('Paso 2: Agrega al menos una sección al entrenamiento.');
-    }
-    if (!this.step3Complete) {
-      this.invalidFields.push('Paso 3: Completa los movimientos de todas las secciones.');
-    }
-    if (!this.step4Complete) {
-      this.invalidFields.push('Paso 4: Ingresa el valor del resultado final para el score elegido.');
-    }
+
+    const step3Errors = this.validationService.validateStep3(this.activeTraining);
+
+    if (step1Errors.length > 0) this.invalidFields.push(...step1Errors);
+    if (step2Errors.length > 0) this.invalidFields.push(...step2Errors);
+    if (step3Errors.length > 0) this.invalidFields.push(...step3Errors);
 
     if (this.invalidFields.length > 0) {
       this.showErrorSummary = true;
-      this.workoutForm.markAllAsTouched();
-      this.logInvalidControls(this.workoutForm);
+      this.resultsForm.markAllAsTouched();
       return;
     }
 
-    const formValue = this.workoutForm.value;
+    // Compile dynamic Training object to relational Workout schema
+    const workout = this.mapTrainingToWorkout(this.activeTraining);
+    this.workoutService.addWorkout(workout);
     
-    // Map FormArray to database TrainingSection[] format
-    const sectionsData = this.sections.controls.map(control => {
-      const val = control.value;
-      const exercises = val.exercisesRaw
-        ? val.exercisesRaw.split(/[,\n]/).map((e: string) => e.trim()).filter((e: string) => e.length > 0)
-        : [];
+    // Redirect to evaluation page
+    this.router.navigate(['/evaluation']);
+  }
+
+  private mapTrainingToWorkout(training: Training): any {
+    let typeVal = WorkoutType.Wod;
+    if (training.trainingType === 'STRENGTH') typeVal = WorkoutType.Strength;
+    if (training.trainingType === 'CARDIO') typeVal = WorkoutType.Cardio;
+
+    const sections = training.blocks.map(block => {
+      let secType = SectionType.Wod;
+      if (block.type === 'WARM_UP') secType = SectionType.WarmUp;
+      if (block.type === 'STRENGTH') secType = SectionType.Strength;
+      if (block.type === 'CARDIO') secType = SectionType.Metcon;
+      if (block.type === 'FREE') secType = SectionType.Notes;
+      if (block.type === 'SKILL') secType = SectionType.Skill;
+      if (block.type === 'ACCESSORY') secType = SectionType.Accessory;
+      if (block.type === 'COOLDOWN') secType = SectionType.Cooldown;
+
+      const exercises: string[] = [];
+      let score: any = undefined;
+
+      const p = block.prescription;
+      if (p.kind === 'WARM_UP') {
+        if (p.content) {
+          exercises.push(...p.content.split(/[,\n]/).map(e => e.trim()).filter(e => e.length > 0));
+        }
+      } else if (p.kind === 'STRENGTH') {
+        if (p.exercise) exercises.push(p.exercise);
+        score = {
+          sets: p.sets,
+          reps: p.reps,
+          weightKg: p.targetWeightKg || undefined,
+          notes: p.notes || undefined
+        };
+      } else if (p.kind === 'WOD') {
+        if (p.movements) {
+          exercises.push(...p.movements.split(/[,\n]/).map(e => e.trim()).filter(e => e.length > 0));
+        }
+        score = {
+          notes: p.notes || undefined
+        };
+      } else if (p.kind === 'CARDIO') {
+        exercises.push(`${p.modality}: ${p.target}`);
+        score = {
+          notes: p.notes || undefined
+        };
+      } else if (p.kind === 'FREE') {
+        if (p.text) exercises.push(p.text);
+      }
+
+      if (block.requiresResult && block.result) {
+        if (!score) score = {};
         
-      const score: any = { scoreType: val.score.scoreType };
-      const sVal = val.score;
-      if (sVal.sets !== null) score.sets = sVal.sets;
-      if (sVal.weightKg !== null) score.weightKg = sVal.weightKg;
-      if (sVal.reps !== null) score.reps = sVal.reps;
-      if (sVal.rounds !== null) score.rounds = sVal.rounds;
-      if (sVal.repsCompleted !== null) score.repsCompleted = sVal.repsCompleted;
-      if (sVal.finalTime) score.finalTime = sVal.finalTime;
-      if (sVal.distanceMeters !== null) score.distanceMeters = sVal.distanceMeters;
-      if (sVal.calories !== null) score.calories = sVal.calories;
-      if (sVal.notes) score.notes = sVal.notes;
+        const res = block.result;
+        score.notes = res.notes || score.notes;
+
+        if (res.scoreType === 'LOAD') {
+          score.weightKg = Number(res.value) || score.weightKg;
+        } else if (res.scoreType === 'TIME') {
+          score.finalTime = res.value;
+        } else if (res.scoreType === 'ROUNDS_REPS') {
+          const match = res.value.match(/(\d+)\s*round/i);
+          const repsMatch = res.value.match(/\+\s*(\d+)\s*rep/i);
+          score.rounds = match ? Number(match[1]) : undefined;
+          score.repsCompleted = repsMatch ? Number(repsMatch[1]) : undefined;
+          
+          if (!score.rounds && !isNaN(Number(res.value))) {
+            score.rounds = Number(res.value);
+          }
+        } else if (res.scoreType === 'REPS') {
+          score.reps = Number(res.value);
+        } else if (res.scoreType === 'CALORIES') {
+          score.calories = Number(res.value);
+        } else if (res.scoreType === 'DISTANCE') {
+          score.distanceMeters = Number(res.value);
+        }
+      }
 
       return {
-        type: val.type,
-        name: val.name || undefined,
+        type: secType,
+        name: block.title,
         exercises,
-        score: val.score.scoreType !== 'none' ? score : undefined
+        score: score && Object.keys(score).length > 0 ? score : undefined
       };
     });
 
-    const parsedDate = new Date(); // Fallback if parsing fails
-    const workout = WorkoutFactory.create({
-      date: formValue.date,
-      type: formValue.type,
-      name: formValue.name,
-      durationMinutes: formValue.durationMinutes || undefined,
-      mainExercises: sectionsData.flatMap(s => s.exercises), // Backward compatibility
-      sections: sectionsData,
-      perceivedDifficulty: formValue.perceivedDifficulty,
-      perceivedIntensity: formValue.perceivedIntensity,
-      energyBefore: formValue.energyBefore,
-      energyAfter: formValue.energyAfter,
-      // Map overall Step 4 score values if required
-      rounds: formValue.scoreType === 'amrap' ? Number(formValue.finalScore) : undefined,
-      finalTime: formValue.scoreType === 'time' ? formValue.finalScore : undefined,
-      weightKg: formValue.scoreType === 'weight' ? Number(formValue.finalScore) : undefined,
-      notes: formValue.notes || undefined
-    });
+    const rpeValues = training.blocks
+      .filter(b => b.requiresResult && b.result?.rpe)
+      .map(b => b.result!.rpe!);
+    const avgRpe = rpeValues.length > 0
+      ? Math.round(rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length)
+      : 8;
 
-    this.workoutService.addWorkout(workout);
-    this.router.navigate(['/evaluation']);
+    const overallNotes = training.blocks
+      .filter(b => b.notes || (b.requiresResult && b.result?.notes))
+      .map(b => `${b.title}: ${b.notes || b.result?.notes}`)
+      .join('\n');
+
+    return WorkoutFactory.create({
+      date: training.date,
+      type: typeVal,
+      name: training.name,
+      mainExercises: sections.flatMap(s => s.exercises),
+      sections,
+      perceivedDifficulty: avgRpe,
+      perceivedIntensity: avgRpe,
+      energyBefore: 7,
+      energyAfter: 5,
+      notes: overallNotes || undefined
+    });
   }
 
   cancel(): void {

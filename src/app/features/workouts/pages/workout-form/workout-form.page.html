@@ -13,713 +13,728 @@
     </div>
   </div>
 
-  <div class="page-title-section">
-    <h1>Registrar entrenamiento</h1>
-    <span class="step-subtitle">
-      @switch (currentStep) {
-        @case (1) { Paso 1: básico }
-        @case (2) { Paso 2: secciones }
-        @case (3) { Paso 3: contenido }
-        @case (4) { Paso 4: resultado }
-      }
-    </span>
-  </div>
+  <!-- Wizard Title Section (Hidden when inside subscreen block editor) -->
+  @if (!isEditingBlock) {
+    <div class="page-title-section">
+      <h1>Registrar entrenamiento</h1>
+      <span class="step-subtitle">
+        @switch (currentStep) {
+          @case (1) { Paso 1: básico }
+          @case (2) { Paso 2: bloques }
+          @case (3) { Paso 3: resultado }
+        }
+      </span>
+    </div>
 
-  <!-- ==========================================
-       STEPPER INDICATOR
-       ========================================== -->
-  <div class="stepper">
-    <div class="stepper-track-bg"></div>
-    <div class="stepper-track-progress" [style.width.%]="(currentStep - 1) * 33.33"></div>
-    
-    <div class="step-node" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="goToStep(1)">
-      <div class="step-circle">1</div>
-      <div class="step-label">Básico</div>
+    <!-- ==========================================
+         STEPPER INDICATOR (3 Steps)
+         ========================================== -->
+    <div class="stepper stepper-3-steps">
+      <div class="stepper-track-bg"></div>
+      <div class="stepper-track-progress" [style.width.%]="(currentStep - 1) * 50"></div>
+      
+      <div class="step-node" [class.active]="currentStep === 1" [class.completed]="currentStep > 1" (click)="goToStep(1)">
+        <div class="step-circle">
+          @if (currentStep > 1) { <i class="pi pi-check text-white"></i> } @else { 1 }
+        </div>
+        <div class="step-label">Básico</div>
+      </div>
+      <div class="step-node" [class.active]="currentStep === 2" [class.completed]="currentStep > 2" (click)="goToStep(2)">
+        <div class="step-circle">
+          @if (currentStep > 2) { <i class="pi pi-check text-white"></i> } @else { 2 }
+        </div>
+        <div class="step-label">Bloques</div>
+      </div>
+      <div class="step-node" [class.active]="currentStep === 3" [class.completed]="currentStep > 3" (click)="goToStep(3)">
+        <div class="step-circle">3</div>
+        <div class="step-label">Resultado</div>
+      </div>
     </div>
-    <div class="step-node" [class.active]="currentStep === 2" [class.completed]="currentStep > 2" (click)="goToStep(2)">
-      <div class="step-circle">2</div>
-      <div class="step-label">Secciones</div>
-    </div>
-    <div class="step-node" [class.active]="currentStep === 3" [class.completed]="currentStep > 3" (click)="goToStep(3)">
-      <div class="step-circle">3</div>
-      <div class="step-label">Contenido</div>
-    </div>
-    <div class="step-node" [class.active]="currentStep === 4" [class.completed]="currentStep > 4" (click)="goToStep(4)">
-      <div class="step-circle">4</div>
-      <div class="step-label">Resultado</div>
-    </div>
-  </div>
+  }
 
   <!-- ==========================================
        MAIN FORM WRAPPER
        ========================================== -->
-  <form [formGroup]="workoutForm" (ngSubmit)="onSubmit()" class="form-wrapper">
+  @if (!isEditingBlock) {
+    <form (ngSubmit)="onSubmit()" class="form-wrapper">
 
-    <!-- =====================================================================
-         PANTALLA 1: BÁSICO
-         ===================================================================== -->
-    @if (currentStep === 1) {
-      <div class="step-view">
-        
-        <!-- Info Banner -->
-        <div class="info-bubble">
-          <i class="pi pi-info-circle"></i>
-          <span>Empieza con la información general de tu sesión.</span>
-        </div>
-
-        <!-- Quick Templates -->
-        <div class="templates-section">
-          <h3>Plantillas rápidas</h3>
-          <div class="template-chips">
-            <button type="button" class="chip-btn" 
-                    [class.active]="workoutForm.get('discipline')?.value === 'crossfit'" 
-                    (click)="selectQuickTemplate('crossfit')">
-              CrossFit
-            </button>
-            <button type="button" class="chip-btn" 
-                    [class.active]="workoutForm.get('discipline')?.value === 'hyrox'" 
-                    (click)="selectQuickTemplate('hyrox')">
-              Hyrox
-            </button>
-            <button type="button" class="chip-btn" 
-                    [class.active]="workoutForm.get('discipline')?.value === 'strength'" 
-                    (click)="selectQuickTemplate('strength')">
-              Fuerza
-            </button>
-            <button type="button" class="chip-btn" 
-                    [class.active]="workoutForm.get('discipline')?.value === 'custom'" 
-                    (click)="selectQuickTemplate('custom')">
-              Libre
-            </button>
-          </div>
-        </div>
-
-        <!-- Basic Data Card -->
-        <div class="ios-card">
-          <h3 class="card-section-title">Datos del entrenamiento</h3>
+      <!-- =====================================================================
+           PASO 1: BÁSICO
+           ===================================================================== -->
+      @if (currentStep === 1) {
+        <div class="step-view" [formGroup]="basicForm">
           
-          <div class="field">
-            <label for="name">Nombre del entrenamiento</label>
-            <input 
-              id="name" 
-              type="text" 
-              pInputText 
-              formControlName="name" 
-              placeholder="Ej: CrossFit de hoy, Fuerza de Piernas..."
-              class="w-full"
-            />
-            @if (workoutForm.get('name')?.invalid && workoutForm.get('name')?.touched) {
-              <small class="error-msg">Ingresa un nombre para el entrenamiento (mínimo 3 letras).</small>
-            }
+          <!-- Info Bubble -->
+          <div class="info-bubble">
+            <i class="pi pi-info-circle"></i>
+            <span>Empieza con la información general de tu entrenamiento.</span>
           </div>
 
-          <div class="row">
-            <div class="field col">
-              <label for="date">Fecha</label>
-              <input 
-                id="date" 
-                type="date" 
-                pInputText 
-                formControlName="date" 
-                class="w-full"
-              />
-              @if (workoutForm.get('date')?.invalid && workoutForm.get('date')?.touched) {
-                <small class="error-msg">Ingresa la fecha de la sesión.</small>
-              }
-            </div>
-
-            <div class="field col">
-              <label for="type">Tipo de entrenamiento</label>
-              <p-select 
-                id="type" 
-                [options]="workoutTypes" 
-                formControlName="type" 
-                optionLabel="label" 
-                optionValue="value"
-                class="w-full"
-              ></p-select>
+          <!-- Quick Templates Chips -->
+          <div class="templates-section">
+            <h3>Plantilla rápida</h3>
+            <div class="template-chips">
+              <button type="button" class="chip-btn" 
+                      [class.active]="basicForm.get('trainingType')?.value === 'CROSSFIT'" 
+                      (click)="selectQuickTemplate('crossfit')">
+                CrossFit @if (basicForm.get('trainingType')?.value === 'CROSSFIT') { <i class="pi pi-check-circle text-xs"></i> }
+              </button>
+              <button type="button" class="chip-btn" 
+                      [class.active]="basicForm.get('trainingType')?.value === 'HYROX'" 
+                      (click)="selectQuickTemplate('hyrox')">
+                Hyrox @if (basicForm.get('trainingType')?.value === 'HYROX') { <i class="pi pi-check-circle text-xs"></i> }
+              </button>
+              <button type="button" class="chip-btn" 
+                      [class.active]="basicForm.get('trainingType')?.value === 'STRENGTH'" 
+                      (click)="selectQuickTemplate('strength')">
+                Fuerza @if (basicForm.get('trainingType')?.value === 'STRENGTH') { <i class="pi pi-check-circle text-xs"></i> }
+              </button>
+              <button type="button" class="chip-btn" 
+                      [class.active]="basicForm.get('trainingType')?.value === 'FREE'" 
+                      (click)="selectQuickTemplate('free')">
+                Libre @if (basicForm.get('trainingType')?.value === 'FREE') { <i class="pi pi-check-circle text-xs"></i> }
+              </button>
             </div>
           </div>
-        </div>
 
-        <!-- Validations info -->
-        <div class="validation-note">
-          <i class="pi pi-check-circle"></i>
-          <span>Campos obligatorios: nombre, fecha y tipo de entrenamiento.</span>
-        </div>
-
-        <!-- Bottom Actions -->
-        <div class="footer-actions">
-          <p-button 
-            type="button" 
-            label="Continuar a secciones" 
-            icon="pi pi-chevron-right" 
-            iconPos="right"
-            (click)="nextStep()"
-            styleClass="primary-nav-btn"
-          ></p-button>
-          
-          <p-button 
-            type="button" 
-            label="Guardar borrador" 
-            icon="pi pi-save"
-            (click)="cancel()"
-            styleClass="secondary-nav-btn"
-          ></p-button>
-        </div>
-
-      </div>
-    }
-
-    <!-- =====================================================================
-         PANTALLA 2: SECCIONES
-         ===================================================================== -->
-    @if (currentStep === 2) {
-      <div class="step-view">
-        
-        <!-- Top Compact Summary Card -->
-        <div class="ios-card summary-bar">
-          <div class="summary-content">
-            <i class="pi pi-file-edit text-primary"></i>
-            <span class="summary-text">
-              {{ workoutForm.get('name')?.value }} · {{ getFormattedDate(workoutForm.get('date')?.value) }} · {{ workoutForm.get('type')?.value | uppercase }}
-            </span>
-          </div>
-          <button type="button" class="edit-link-btn" (click)="goToStep(1)">
-            <i class="pi pi-pencil"></i> Editar básicos
-          </button>
-        </div>
-
-        <!-- Info Bubble -->
-        <div class="info-bubble">
-          <i class="pi pi-info-circle"></i>
-          <span>Organiza tu sesión por bloques como en un entrenamiento real.</span>
-        </div>
-
-        <!-- Section list Structure -->
-        <div class="section-structure">
-          <h3 class="card-section-title">Estructura del entrenamiento</h3>
-
-          @if (sections.length === 0) {
-            <div class="empty-sections-placeholder">
-              <i class="pi pi-folder-open"></i>
-              <p>No tienes secciones agregadas. Añade una para estructurar tu entrenamiento.</p>
-            </div>
-          }
-
-          <div class="sections-list">
-            @for (sec of sections.controls; track $index) {
-              <div class="ios-card section-row-card">
-                <div class="section-row-left">
-                  <!-- Order badge & Icon -->
-                  <div class="section-icon-badge" [class]="getSectionColorClass(sec.get('type')?.value)">
-                    <i class="pi" [class]="getSectionIcon(sec.get('type')?.value)"></i>
-                  </div>
-                  <span class="order-num">{{ $index + 1 }}</span>
-                  
-                  <div class="section-meta">
-                    <h4>{{ sec.get('name')?.value }}</h4>
-                    <p>{{ getSectionSummary($index) }}</p>
-                  </div>
-                </div>
-
-                <div class="section-row-actions">
-                  <button type="button" class="btn-icon-action edit" (click)="openEditSectionModal($index)" title="Editar Sección">
-                    <i class="pi pi-pencil"></i> <span>Editar</span>
-                  </button>
-                  <button type="button" class="btn-icon-action delete" (click)="removeSection($index)" [disabled]="sections.length <= 1" title="Eliminar">
-                    <i class="pi pi-trash"></i> <span>Eliminar</span>
-                  </button>
-                  
-                  <!-- Reordering controls -->
-                  <div class="reorder-controls">
-                    <button type="button" class="btn-icon-reorder" (click)="moveSectionUp($index)" [disabled]="$index === 0">
-                      <i class="pi pi-chevron-up"></i>
-                    </button>
-                    <button type="button" class="btn-icon-reorder" (click)="moveSectionDown($index)" [disabled]="$index === sections.length - 1">
-                      <i class="pi pi-chevron-down"></i>
-                    </button>
-                  </div>
-                </div>
-              </div>
-            }
-          </div>
-
-          <!-- Add section trigger dashed card -->
-          <button type="button" class="add-section-dashed-card" (click)="addSection()">
-            <i class="pi pi-plus-circle"></i>
-            <span>Agregar sección</span>
-          </button>
-        </div>
-
-        <!-- Section suggestions chips -->
-        <div class="suggestions-section">
-          <div class="suggestions-bubble">
-            <i class="pi pi-lightbulb text-primary"></i>
-            <span class="title">Sugeridos:</span>
-            <div class="chips-row">
-              <button type="button" class="suggest-chip" (click)="addSection(SectionType.WarmUp)">Warm-up</button>
-              <button type="button" class="suggest-chip" (click)="addSection(SectionType.Skill)">Skill</button>
-              <button type="button" class="suggest-chip" (click)="addSection(SectionType.Strength)">Strength</button>
-              <button type="button" class="suggest-chip" (click)="addSection(SectionType.Wod)">WOD</button>
-              <button type="button" class="suggest-chip" (click)="addSection(SectionType.Accessory)">Accessory</button>
-              <button type="button" class="suggest-chip" (click)="addSection(SectionType.Cooldown)">Cooldown</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Bottom Actions -->
-        <div class="footer-actions">
-          <p-button 
-            type="button" 
-            label="Continuar a contenido" 
-            icon="pi pi-chevron-right" 
-            iconPos="right"
-            (click)="nextStep()"
-            styleClass="primary-nav-btn"
-          ></p-button>
-          
-          <p-button 
-            type="button" 
-            label="Guardar borrador" 
-            icon="pi pi-save"
-            (click)="cancel()"
-            styleClass="secondary-nav-btn"
-          ></p-button>
-        </div>
-
-      </div>
-    }
-
-    <!-- =====================================================================
-         PANTALLA 3: CONTENIDO
-         ===================================================================== -->
-    @if (currentStep === 3) {
-      <div class="step-view">
-        
-        <!-- Top Compact Summary Card -->
-        <div class="ios-card summary-bar">
-          <div class="summary-content">
-            <i class="pi pi-folder text-primary"></i>
-            <span class="summary-text">
-              {{ workoutForm.get('name')?.value }} · {{ getFormattedDate(workoutForm.get('date')?.value) }} · {{ workoutForm.get('type')?.value | uppercase }}
-            </span>
-          </div>
-          <span class="sections-count-badge">{{ sections.length }} secciones</span>
-          <button type="button" class="edit-link-btn" (click)="goToStep(2)">
-            <i class="pi pi-pencil"></i> Editar secciones
-          </button>
-        </div>
-
-        <!-- Info Bubble -->
-        <div class="info-bubble">
-          <i class="pi pi-info-circle"></i>
-          <span>Aquí defines el contenido de cada bloque.</span>
-        </div>
-
-        <!-- Content list per block -->
-        <div class="section-content-list">
-          <h3 class="card-section-title">Contenido por sección</h3>
-
-          @for (sec of sections.controls; track $index) {
-            <div class="ios-card block-content-card">
-              <div class="card-block-header">
-                <span class="block-badge" [class]="getSectionColorClass(sec.get('type')?.value)">
-                  {{ sec.get('name')?.value }}
-                </span>
-                
-                @if (sec.get('score.scoreType')?.value !== 'none') {
-                  <span class="requires-result-badge">
-                    <i class="pi pi-star-fill"></i> Requiere resultado
-                  </span>
-                }
-              </div>
-
-              <!-- Exercise details list -->
-              <div class="card-block-details">
-                @if (getSectionScoreDetailText($index)) {
-                  <p class="score-setup-meta">{{ getSectionScoreDetailText($index) }}</p>
-                }
-                
-                <ul class="exercises-bullet-list">
-                  @for (ex of getSectionExercisesArray($index); track ex) {
-                    <li>{{ ex }}</li>
-                  }
-                  @if (getSectionExercisesArray($index).length === 0) {
-                    <li class="empty-list-warn">⚠️ Sin ejercicios o movimientos ingresados.</li>
-                  }
-                </ul>
-              </div>
-
-              <div class="card-block-footer">
-                <button type="button" class="btn-block-edit" (click)="openEditSectionModal($index)">
-                  Editar contenido <i class="pi pi-chevron-right"></i>
-                </button>
-              </div>
-            </div>
-          }
-        </div>
-
-        <!-- Footer Help -->
-        <div class="info-bubble help-light">
-          <i class="pi pi-question-circle text-primary"></i>
-          <span>Puedes usar texto libre, ejercicios o bloques estructurados.</span>
-        </div>
-
-        <!-- Bottom Actions -->
-        <div class="footer-actions">
-          <p-button 
-            type="button" 
-            label="Continuar a resultado" 
-            icon="pi pi-chevron-right" 
-            iconPos="right"
-            (click)="nextStep()"
-            styleClass="primary-nav-btn"
-          ></p-button>
-          
-          <p-button 
-            type="button" 
-            label="Guardar borrador" 
-            icon="pi pi-save"
-            (click)="cancel()"
-            styleClass="secondary-nav-btn"
-          ></p-button>
-        </div>
-
-      </div>
-    }
-
-    <!-- =====================================================================
-         PANTALLA 4: RESULTADO
-         ===================================================================== -->
-    @if (currentStep === 4) {
-      <div class="step-view">
-        
-        <!-- Top Compact Summary Card -->
-        <div class="ios-card summary-bar column-summary">
-          <div class="row-summary">
-            <div class="summary-content">
-              <i class="pi pi-trophy text-primary"></i>
-              <span class="summary-text font-bold">
-                {{ workoutForm.get('name')?.value }} · {{ getFormattedDate(workoutForm.get('date')?.value) }} · {{ workoutForm.get('type')?.value | uppercase }}
-              </span>
-            </div>
-          </div>
-          <div class="sections-summary-footer">
-            @for (sec of sections.controls; track $index) {
-              <span class="footer-sec-chip">{{ sec.get('name')?.value }}</span>
-              @if ($index < sections.length - 1) { <span class="divider">·</span> }
-            }
-          </div>
-        </div>
-
-        <!-- Info Bubble -->
-        <div class="info-bubble">
-          <i class="pi pi-info-circle"></i>
-          <span>Registra el resultado final y cualquier nota importante.</span>
-        </div>
-
-        <!-- Final score result card -->
-        <div class="ios-card">
-          <h3 class="card-section-title"><i class="pi pi-trophy text-primary"></i> Resultado del entrenamiento</h3>
-          
-          <div class="field">
-            <label for="scoreType">Tipo de resultado</label>
-            <p-select 
-              id="scoreType" 
-              [options]="scoreTypes" 
-              formControlName="scoreType" 
-              optionLabel="label" 
-              optionValue="value"
-              class="w-full"
-              (onChange)="onStep4ScoreTypeChange()"
-            ></p-select>
-          </div>
-
-          @if (workoutForm.get('scoreType')?.value !== 'none') {
-            <div class="field">
-              <label for="finalScore">Resultado *</label>
-              <div class="input-with-icon">
-                <i class="pi pi-chart-bar input-prefix-icon"></i>
+          <!-- Basic Data Card -->
+          <div class="ios-card basic-card">
+            <h3 class="card-section-title">Datos del entrenamiento</h3>
+            
+            <div class="field field-with-icon-left">
+              <i class="pi pi-file-edit field-icon text-primary"></i>
+              <div class="field-input-box">
+                <label for="name">Nombre del entrenamiento *</label>
                 <input 
-                  id="finalScore" 
+                  id="name" 
                   type="text" 
                   pInputText 
-                  formControlName="finalScore" 
-                  placeholder="Ej: 7 rounds + 4 reps, 14:35, 80 kg..."
-                  class="w-full icon-padded"
+                  formControlName="name" 
+                  placeholder="Ej: CrossFit de hoy, Fuerza de Piernas..."
+                  class="w-full input-borderless"
                 />
               </div>
-              @if (workoutForm.get('finalScore')?.invalid && workoutForm.get('finalScore')?.touched) {
-                <small class="error-msg">Ingresa el resultado de tu sesión.</small>
+              @if (basicForm.get('name')?.invalid && basicForm.get('name')?.touched) {
+                <small class="error-msg pl-9">Ingresa un nombre para el entrenamiento (mínimo 3 letras).</small>
               }
             </div>
-          }
 
-          <div class="field">
-            <label for="perceivedDifficulty">RPE / esfuerzo percibido *</label>
-            <div class="input-with-icon">
-              <i class="pi pi-gauge input-prefix-icon"></i>
-              <p-select 
-                id="perceivedDifficulty" 
-                [options]="difficultyOptions" 
-                formControlName="perceivedDifficulty" 
-                optionLabel="label" 
-                optionValue="value"
-                class="w-full icon-padded-select"
-              ></p-select>
-            </div>
-          </div>
-
-          <div class="field">
-            <label for="notes">Notas</label>
-            <div class="input-with-icon align-start">
-              <i class="pi pi-file input-prefix-icon"></i>
-              <textarea 
-                id="notes" 
-                pTextarea 
-                formControlName="notes" 
-                rows="3" 
-                placeholder="Ej: Me sentí fuerte en strength. El WOD fue exigente al final."
-                class="w-full icon-padded-area"
-              ></textarea>
-            </div>
-          </div>
-        </div>
-
-        <!-- Validations Checklist Card -->
-        <div class="ios-card validations-checklist-card">
-          <h3 class="card-section-title"><i class="pi pi-shield text-primary"></i> Validación antes de guardar</h3>
-          
-          <ul class="checklist-items">
-            <li>
-              <i class="pi" [ngClass]="step1Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
-              <span>Datos básicos completos</span>
-            </li>
-            <li>
-              <i class="pi" [ngClass]="step2Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
-              <span>Al menos una sección agregada</span>
-            </li>
-            <li>
-              <i class="pi" [ngClass]="step3Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
-              <span>Contenido cargado en las secciones</span>
-            </li>
-            <li>
-              <i class="pi" [ngClass]="step4Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
-              <span>Resultado registrado</span>
-            </li>
-          </ul>
-
-          <div class="validation-footer-info">
-            <i class="pi pi-info-circle text-primary"></i>
-            <span>Si falta algo, te diremos exactamente qué completar.</span>
-          </div>
-        </div>
-
-        <!-- Error Summary Box if fields are invalid -->
-        @if (showErrorSummary && invalidFields.length > 0) {
-          <div class="error-summary-box">
-            <div class="error-summary-header">
-              <i class="pi pi-exclamation-triangle"></i>
-              <span>Faltan datos obligatorios para guardar:</span>
-            </div>
-            <ul class="error-summary-list">
-              @for (error of invalidFields; track error) {
-                <li>{{ error }}</li>
-              }
-            </ul>
-          </div>
-        }
-
-        <!-- Bottom Actions -->
-        <div class="footer-actions">
-          <p-button 
-            type="submit" 
-            label="Guardar entrenamiento" 
-            icon="pi pi-chevron-right" 
-            iconPos="right"
-            styleClass="primary-nav-btn"
-          ></p-button>
-          
-          <p-button 
-            type="button" 
-            label="Guardar borrador" 
-            icon="pi pi-save"
-            (click)="cancel()"
-            styleClass="secondary-nav-btn"
-          ></p-button>
-        </div>
-
-      </div>
-    }
-
-  </form>
-
-  <!-- ==========================================
-       MODAL: EDIT SECTION MODAL (iOS Drawer Style)
-       ========================================== -->
-  @if (isEditingSection && editSectionForm) {
-    <div class="modal-overlay" (click)="closeEditSectionModal()">
-      <div class="modal-drawer" (click)="$event.stopPropagation()">
-        
-        <!-- Header -->
-        <div class="modal-header">
-          <h3>Editar Bloque #{{ (activeEditIndex !== null ? activeEditIndex + 1 : 0) }}</h3>
-          <button type="button" class="modal-close-btn" (click)="closeEditSectionModal()">
-            <i class="pi pi-times"></i>
-          </button>
-        </div>
-
-        <!-- Body Form -->
-        <form [formGroup]="editSectionForm" (ngSubmit)="saveSectionEdit()" class="modal-body-form">
-          <div class="field">
-            <label>Tipo de Bloque *</label>
-            <p-select 
-              [options]="sectionTypes" 
-              formControlName="type" 
-              optionLabel="label" 
-              optionValue="value"
-              class="w-full"
-            ></p-select>
-          </div>
-
-          <div class="field">
-            <label>Nombre del Bloque *</label>
-            <input 
-              type="text" 
-              pInputText 
-              formControlName="name" 
-              placeholder="Ej: Calentamiento, Fuerza, Core..."
-              class="w-full"
-            />
-            @if (editSectionForm.get('name')?.invalid && editSectionForm.get('name')?.touched) {
-              <small class="error-msg">Ingresa un nombre para el bloque.</small>
-            }
-          </div>
-
-          <div class="field">
-            <label>Movimientos / Ejercicios *</label>
-            <textarea 
-              pTextarea 
-              formControlName="exercisesRaw" 
-              rows="3" 
-              placeholder="Ej: 5 rondas: 10 wall balls, 10 burpees, 200m run"
-              class="w-full"
-            ></textarea>
-            @if (editSectionForm.get('exercisesRaw')?.invalid && editSectionForm.get('exercisesRaw')?.touched) {
-              <small class="error-msg">Agrega al menos un ejercicio o movimiento.</small>
-            }
-          </div>
-
-          <div class="score-divider">
-            <span>Marcas y Score del Bloque</span>
-          </div>
-
-          <div class="field">
-            <label>Tipo de Marca / Score</label>
-            <p-select 
-              [options]="scoreTypes" 
-              formControlName="scoreType" 
-              optionLabel="label" 
-              optionValue="value"
-              class="w-full"
-              (onChange)="onModalScoreTypeChange()"
-            ></p-select>
-          </div>
-
-          <!-- Conditional fields based on scoreType selection in modal -->
-          <div class="stats-row">
-            <div class="field col">
-              <label>Series / Sets</label>
-              <p-inputnumber formControlName="sets" placeholder="Sets" [min]="0" class="w-full"></p-inputnumber>
-            </div>
-            <div class="field col" [class.required-field]="editSectionForm.get('scoreType')?.value === 'weight'">
-              <label>Peso (kg) <span class="required-star">*</span></label>
-              <p-inputnumber formControlName="weightKg" placeholder="Kg" [min]="0" class="w-full"></p-inputnumber>
-              @if (editSectionForm.get('weightKg')?.invalid && editSectionForm.get('weightKg')?.touched) {
-                <small class="error-msg">Ingresa el peso.</small>
+            <div class="field field-with-icon-left">
+              <i class="pi pi-calendar field-icon text-primary"></i>
+              <div class="field-input-box">
+                <label for="date">Fecha *</label>
+                <input 
+                  id="date" 
+                  type="date" 
+                  pInputText 
+                  formControlName="date" 
+                  class="w-full input-borderless"
+                />
+              </div>
+              @if (basicForm.get('date')?.invalid && basicForm.get('date')?.touched) {
+                <small class="error-msg pl-9">Ingresa la fecha de la sesión.</small>
               }
             </div>
-            <div class="field col">
-              <label>Reps</label>
-              <p-inputnumber formControlName="reps" placeholder="Reps" [min]="0" class="w-full"></p-inputnumber>
-            </div>
-          </div>
 
-          <div class="stats-row">
-            <div class="field col" [class.required-field]="editSectionForm.get('scoreType')?.value === 'amrap'">
-              <label>Rondas <span class="required-star">*</span></label>
-              <p-inputnumber formControlName="rounds" placeholder="Rds" [min]="0" class="w-full"></p-inputnumber>
-              @if (editSectionForm.get('rounds')?.invalid && editSectionForm.get('rounds')?.touched) {
-                <small class="error-msg">Ingresa las rondas.</small>
-              }
+            <div class="field field-with-icon-left">
+              <i class="pi pi-tag field-icon text-primary"></i>
+              <div class="field-input-box">
+                <label for="trainingType">Tipo de entrenamiento *</label>
+                <p-select 
+                  id="trainingType" 
+                  [options]="trainingTypes" 
+                  formControlName="trainingType" 
+                  optionLabel="label" 
+                  optionValue="value"
+                  class="w-full select-borderless"
+                ></p-select>
+              </div>
             </div>
-            <div class="field col">
-              <label>Reps Extras</label>
-              <p-inputnumber formControlName="repsCompleted" placeholder="Reps" [min]="0" class="w-full"></p-inputnumber>
-            </div>
-            <div class="field col" [class.required-field]="editSectionForm.get('scoreType')?.value === 'distance'">
-              <label>Distancia (m) <span class="required-star">*</span></label>
-              <p-inputnumber formControlName="distanceMeters" placeholder="m" [min]="0" class="w-full"></p-inputnumber>
-              @if (editSectionForm.get('distanceMeters')?.invalid && editSectionForm.get('distanceMeters')?.touched) {
-                <small class="error-msg">Ingresa la distancia.</small>
-              }
-            </div>
-          </div>
 
-          <div class="row">
-            <div class="field col" [class.required-field]="editSectionForm.get('scoreType')?.value === 'time'">
-              <label>Tiempo Final (MM:SS) <span class="required-star">*</span></label>
-              <input 
-                type="text" 
-                pInputText 
-                formControlName="finalTime" 
-                placeholder="Ej: 14:35" 
-                class="w-full"
-              />
-              @if (editSectionForm.get('finalTime')?.invalid && editSectionForm.get('finalTime')?.touched) {
-                <small class="error-msg">Formato MM:SS (Ej: 14:35).</small>
-              }
+            <div class="card-footer-alert">
+              <i class="pi pi-info-circle text-primary"></i>
+              <span>Campos obligatorios: nombre, fecha y tipo de entrenamiento.</span>
             </div>
-            <div class="field col" [class.required-field]="editSectionForm.get('scoreType')?.value === 'calories'">
-              <label>Calorías <span class="required-star">*</span></label>
-              <p-inputnumber formControlName="calories" placeholder="cal" [min]="0" class="w-full"></p-inputnumber>
-              @if (editSectionForm.get('calories')?.invalid && editSectionForm.get('calories')?.touched) {
-                <small class="error-msg">Ingresa las calorías.</small>
-              }
-            </div>
-          </div>
-
-          <div class="field">
-            <label>Notas del Score / Marca</label>
-            <input 
-              type="text" 
-              pInputText 
-              formControlName="notes" 
-              placeholder="Ej: unbroken, Rx" 
-              class="w-full"
-            />
           </div>
 
           <!-- Actions -->
-          <div class="modal-footer-actions">
-            <p-button 
-              type="submit" 
-              label="Guardar cambios" 
-              icon="pi pi-check" 
-              styleClass="modal-save-btn"
-            ></p-button>
+          <div class="footer-actions">
             <p-button 
               type="button" 
-              label="Cancelar" 
-              icon="pi pi-times" 
-              (click)="closeEditSectionModal()" 
-              styleClass="modal-cancel-btn"
+              label="Continuar a bloques" 
+              icon="pi pi-arrow-right" 
+              iconPos="right"
+              (click)="nextStep()"
+              styleClass="primary-nav-btn"
+            ></p-button>
+            
+            <p-button 
+              type="button" 
+              label="Guardar borrador" 
+              icon="pi pi-save"
+              (click)="cancel()"
+              styleClass="secondary-nav-btn"
             ></p-button>
           </div>
-        </form>
+
+        </div>
+      }
+
+      <!-- =====================================================================
+           PASO 2: BLOQUES (ESTRUCTURA + CONTENIDO)
+           ===================================================================== -->
+      @if (currentStep === 2) {
+        <div class="step-view">
+          
+          <!-- Top Compact Summary Card -->
+          <div class="ios-card summary-bar">
+            <div class="summary-content">
+              <i class="pi pi-calendar text-primary"></i>
+              <span class="summary-text">
+                {{ activeTraining.name }} · {{ getFormattedDate(activeTraining.date) }} · {{ activeTraining.trainingType }}
+              </span>
+            </div>
+            <button type="button" class="edit-link-btn" (click)="goToStep(1)">
+              <i class="pi pi-pencil"></i> Editar básicos
+            </button>
+          </div>
+
+          <!-- Info Bubble -->
+          <div class="info-bubble">
+            <i class="pi pi-info-circle"></i>
+            <span>Construye tu sesión por bloques. Aquí defines la estructura y el contenido.</span>
+          </div>
+
+          <!-- Blocks List -->
+          <div class="section-structure">
+            <h3 class="card-section-title">Bloques del entrenamiento</h3>
+
+            @if (activeTraining.blocks.length === 0) {
+              <div class="empty-sections-placeholder">
+                <i class="pi pi-folder-open"></i>
+                <p>No tienes bloques agregados. Añade uno para estructurar tu entrenamiento.</p>
+              </div>
+            }
+
+            <div class="sections-list">
+              @for (block of activeTraining.blocks; track block.id) {
+                <div class="ios-card section-row-card">
+                  <div class="section-row-left">
+                    <div class="section-icon-badge" [class]="getBlockColorClass(block.type)">
+                      <i class="pi" [class]="getBlockIcon(block.type)"></i>
+                    </div>
+                    <span class="order-num">{{ $index + 1 }}</span>
+                    
+                    <div class="section-meta">
+                      <h4>{{ block.title }}</h4>
+                      <p>{{ getBlockSummary(block) }}</p>
+                    </div>
+                  </div>
+
+                  <div class="section-row-actions">
+                    <button type="button" class="btn-icon-action edit" (click)="openEditBlockSubscreen($index)" title="Editar Bloque">
+                      <i class="pi pi-pencil"></i> <span>Editar</span>
+                    </button>
+                    <button type="button" class="btn-icon-action delete" (click)="deleteBlock($index)" title="Eliminar">
+                      <i class="pi pi-trash"></i> <span>Eliminar</span>
+                    </button>
+                    
+                    <!-- Reorder & Drag Handle -->
+                    <div class="reorder-controls">
+                      <button type="button" class="btn-icon-reorder" (click)="moveBlockUp($index)" [disabled]="$index === 0">
+                        <i class="pi pi-chevron-up"></i>
+                      </button>
+                      <button type="button" class="btn-icon-reorder" (click)="moveBlockDown($index)" [disabled]="$index === activeTraining.blocks.length - 1">
+                        <i class="pi pi-chevron-down"></i>
+                      </button>
+                    </div>
+                    <div class="drag-handle-visual">
+                      <i class="pi pi-bars"></i>
+                    </div>
+                  </div>
+                </div>
+              }
+            </div>
+
+            <!-- Add block trigger dashed card -->
+            <div class="add-section-options">
+              <button type="button" class="add-section-dashed-card" (click)="addBlock('WOD')">
+                <i class="pi pi-plus-circle"></i>
+                <span>Agregar bloque</span>
+              </button>
+            </div>
+          </div>
+
+          <!-- Section suggestions chips -->
+          <div class="suggestions-section">
+            <div class="suggestions-bubble">
+              <i class="pi pi-lightbulb text-primary"></i>
+              <span class="title">Tipos de bloque</span>
+              <div class="chips-row">
+                <button type="button" class="suggest-chip" (click)="addBlock('WARM_UP')">Warm-up</button>
+                <button type="button" class="suggest-chip" (click)="addBlock('STRENGTH')">Strength</button>
+                <button type="button" class="suggest-chip" (click)="addBlock('WOD')">WOD</button>
+                <button type="button" class="suggest-chip" (click)="addBlock('CARDIO')">Cardio</button>
+                <button type="button" class="suggest-chip" (click)="addBlock('FREE')">Libre</button>
+              </div>
+            </div>
+          </div>
+
+          <!-- Diagnostics summary if empty -->
+          @if (showErrorSummary && activeTraining.blocks.length === 0) {
+            <small class="error-msg text-center display-block">⚠️ Agrega al menos un bloque para continuar.</small>
+          }
+
+          <!-- Bottom Actions -->
+          <div class="footer-actions">
+            <p-button 
+              type="button" 
+              label="Continuar a resultado" 
+              icon="pi pi-arrow-right" 
+              iconPos="right"
+              (click)="nextStep()"
+              styleClass="primary-nav-btn"
+            ></p-button>
+            
+            <p-button 
+              type="button" 
+              label="Guardar borrador" 
+              icon="pi pi-save"
+              (click)="cancel()"
+              styleClass="secondary-nav-btn"
+            ></p-button>
+          </div>
+
+        </div>
+      }
+
+      <!-- =====================================================================
+           PASO 3: RESULTADO
+           ===================================================================== -->
+      @if (currentStep === 3) {
+        <div class="step-view" [formGroup]="resultsForm">
+          
+          <!-- Top Compact Summary Card -->
+          <div class="ios-card summary-bar column-summary">
+            <div class="row-summary">
+              <div class="summary-content">
+                <i class="pi pi-trophy text-primary"></i>
+                <span class="summary-text font-bold">
+                  {{ activeTraining.name }} · {{ getFormattedDate(activeTraining.date) }} · {{ activeTraining.trainingType }}
+                </span>
+              </div>
+            </div>
+            <div class="sections-summary-footer">
+              @for (block of activeTraining.blocks; track block.id) {
+                <span class="footer-sec-chip">{{ block.title }}</span>
+                @if ($index < activeTraining.blocks.length - 1) { <span class="divider">·</span> }
+              }
+            </div>
+          </div>
+
+          <!-- Info Bubble -->
+          <div class="info-bubble">
+            <i class="pi pi-info-circle"></i>
+            <span>Aquí registras cómo te fue. Solo verás los resultados que aplican a cada bloque.</span>
+          </div>
+
+          <!-- Results list by Block -->
+          <div class="section-content-list">
+            <h3 class="card-section-title">Resultados del entrenamiento</h3>
+
+            @if (blocksRequiringResults.length === 0) {
+              <div class="empty-sections-placeholder">
+                <i class="pi pi-info-circle"></i>
+                <p>Ninguno de tus bloques agregados requiere resultados obligatorios (ej: Warm-up o Libre).</p>
+              </div>
+            }
+
+            @for (block of blocksRequiringResults; track block.id) {
+              <div class="ios-card block-result-card" [formGroupName]="block.id">
+                <div class="card-block-header">
+                  <div class="header-badge-title">
+                    <span class="block-badge" [class]="getBlockColorClass(block.type)">
+                      {{ block.title }}
+                    </span>
+                    @if (block.type === 'STRENGTH' && block.prescription.kind === 'STRENGTH') {
+                      <span class="block-prescription-detail-label">/ {{ block.prescription.exercise }}</span>
+                    }
+                    @if (block.type === 'WOD' && block.prescription.kind === 'WOD') {
+                      <span class="block-prescription-detail-label">/ {{ block.prescription.format }} {{ block.prescription.durationMinutes || block.prescription.timeCapMinutes || '' }}'</span>
+                    }
+                    @if (block.type === 'CARDIO' && block.prescription.kind === 'CARDIO') {
+                      <span class="block-prescription-detail-label">/ {{ getFormattedModality(block.prescription.modality) }} {{ block.prescription.target }}</span>
+                    }
+                  </div>
+                </div>
+
+                <!-- Block Specific Result Inputs -->
+                <div class="result-fields-box">
+                  
+                  <!-- STRENGTH RESULT FIELDS -->
+                  @if (block.type === 'STRENGTH') {
+                    <div class="row">
+                      <div class="field col">
+                        <label>Peso logrado (kg) *</label>
+                        <input type="text" pInputText formControlName="value" placeholder="Ej: 45" class="w-full"/>
+                        @if (getResultGroup(block.id).get('value')?.invalid && getResultGroup(block.id).get('value')?.touched) {
+                          <small class="error-msg">Requerido.</small>
+                        }
+                      </div>
+                      <div class="field col">
+                        <label>RPE (Esfuerzo)</label>
+                        <p-select [options]="difficultyOptions" formControlName="rpe" optionLabel="label" optionValue="value" class="w-full"></p-select>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- WOD RESULT FIELDS -->
+                  @if (block.type === 'WOD') {
+                    <div class="row">
+                      <div class="field col">
+                        <label>Tipo de resultado</label>
+                        <input type="text" pInputText [disabled]="true" [value]="getScoreTypeLabel(block.scoreExpected)" class="w-full"/>
+                      </div>
+                      <div class="field col">
+                        <label>Resultado *</label>
+                        <input type="text" pInputText formControlName="value" placeholder="Ej: 7 rounds + 4 reps, 14:35, 80 cal..." class="w-full"/>
+                        @if (getResultGroup(block.id).get('value')?.invalid && getResultGroup(block.id).get('value')?.touched) {
+                          <small class="error-msg">Ingresa tu marca.</small>
+                        }
+                      </div>
+                    </div>
+                    <div class="row pt-2">
+                      <div class="field col">
+                        <label>Escalado</label>
+                        <p-select [options]="scalingOptions" formControlName="scaling" optionLabel="label" optionValue="value" class="w-full"></p-select>
+                      </div>
+                      <div class="field col">
+                        <label>RPE (Esfuerzo)</label>
+                        <p-select [options]="difficultyOptions" formControlName="rpe" optionLabel="label" optionValue="value" class="w-full"></p-select>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- CARDIO RESULT FIELDS -->
+                  @if (block.type === 'CARDIO') {
+                    <div class="row">
+                      <div class="field col">
+                        <label>Tipo de resultado</label>
+                        <input type="text" pInputText [disabled]="true" value="Tiempo Final" class="w-full"/>
+                      </div>
+                      <div class="field col">
+                        <label>Tiempo final *</label>
+                        <input type="text" pInputText formControlName="value" placeholder="Ej: 04:12" class="w-full"/>
+                        @if (getResultGroup(block.id).get('value')?.invalid && getResultGroup(block.id).get('value')?.touched) {
+                          <small class="error-msg">Requerido.</small>
+                        }
+                      </div>
+                    </div>
+                    <div class="row pt-2">
+                      <div class="field col">
+                        <label>RPE (Esfuerzo)</label>
+                        <p-select [options]="difficultyOptions" formControlName="rpe" optionLabel="label" optionValue="value" class="w-full"></p-select>
+                      </div>
+                    </div>
+                  }
+
+                  <!-- Common Notes field -->
+                  <div class="field pt-2">
+                    <label>Notas del resultado</label>
+                    <input type="text" pInputText formControlName="notes" placeholder="Ej: Última serie costó, Rx..." class="w-full"/>
+                  </div>
+                </div>
+              </div>
+            }
+          </div>
+
+          <!-- Validation Checklist Card -->
+          <div class="ios-card validations-checklist-card">
+            <h3 class="card-section-title"><i class="pi pi-shield text-primary"></i> Antes de guardar</h3>
+            
+            <ul class="checklist-items">
+              <li>
+                <i class="pi" [ngClass]="step1Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
+                <span>Datos básicos completos</span>
+              </li>
+              <li>
+                <i class="pi" [ngClass]="step2Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
+                <span>Al menos un bloque agregado</span>
+              </li>
+              <li>
+                <i class="pi" [ngClass]="step3Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
+                <span>Bloques con contenido</span>
+              </li>
+              <li>
+                <i class="pi" [ngClass]="step3Complete ? 'pi-check-circle text-success' : 'pi-circle-off text-muted'"></i>
+                <span>Resultados solo en los bloques que los requieren</span>
+              </li>
+            </ul>
+
+            <div class="validation-footer-info">
+              <i class="pi pi-info-circle text-primary"></i>
+              <span>Si falta algo, te diremos exactamente qué completar.</span>
+            </div>
+          </div>
+
+          <!-- Error Summary Box -->
+          @if (showErrorSummary && invalidFields.length > 0) {
+            <div class="error-summary-box">
+              <div class="error-summary-header">
+                <i class="pi pi-exclamation-triangle"></i>
+                <span>Te falta completar:</span>
+              </div>
+              <ul class="error-summary-list">
+                @for (error of invalidFields; track error) {
+                  <li>{{ error }}</li>
+                }
+              </ul>
+            </div>
+          }
+
+          <!-- Bottom Actions -->
+          <div class="footer-actions">
+            <p-button 
+              type="submit" 
+              label="Guardar entrenamiento" 
+              icon="pi pi-check" 
+              styleClass="primary-nav-btn"
+            ></p-button>
+            
+            <p-button 
+              type="button" 
+              label="Guardar borrador" 
+              icon="pi pi-save"
+              (click)="cancel()"
+              styleClass="secondary-nav-btn"
+            ></p-button>
+          </div>
+
+        </div>
+      }
+
+    </form>
+  }
+
+  <!-- =====================================================================
+       SUBPANTALLA INTERNA: EDICIÓN DE BLOQUES (Paso 2 subview)
+       ===================================================================== -->
+  @if (isEditingBlock) {
+    <div class="block-editor-subscreen">
+      
+      <!-- Back Arrow header -->
+      <div class="subscreen-header">
+        <button type="button" class="back-link-arrow-btn" (click)="cancelBlockEdit()">
+          <i class="pi pi-arrow-left"></i> Volver a bloques
+        </button>
+        <span class="path-label">Bloques > Editar {{ activeEditBlockType }}</span>
+      </div>
+
+      <div class="page-title-section">
+        <h1>
+          @if (activeEditBlockIndex !== null) { Editar bloque · {{ activeEditBlockType }} }
+          @else { Nuevo bloque · {{ activeEditBlockType }} }
+        </h1>
+      </div>
+
+      <!-- Info bubble -->
+      <div class="info-bubble">
+        <i class="pi pi-info-circle"></i>
+        <span>Estás editando un bloque. Solo ves los campos que aplican a {{ activeEditBlockType }}.</span>
+      </div>
+
+      <!-- DYNAMIC EDITOR FORM CARD -->
+      <div class="ios-card block-editor-card">
+        
+        <!-- ==================== WARM-UP FORM ==================== -->
+        @if (activeEditBlockType === 'WARM_UP') {
+          <div class="dynamic-editor-form" [formGroup]="warmUpForm">
+            <div class="field">
+              <label for="warmup-title">Título del bloque</label>
+              <input id="warmup-title" type="text" pInputText formControlName="title" class="w-full"/>
+              @if (warmUpForm.get('title')?.invalid && warmUpForm.get('title')?.touched) {
+                <small class="error-msg">Requerido.</small>
+              }
+            </div>
+
+            <div class="field">
+              <label for="warmup-inputType">Tipo de entrada</label>
+              <p-select id="warmup-inputType" [options]="[{label: 'Texto libre', value: 'TEXT'}]" formControlName="inputType" optionLabel="label" optionValue="value" class="w-full"></p-select>
+            </div>
+
+            <div class="field">
+              <label for="warmup-content">Contenido *</label>
+              <textarea id="warmup-content" pTextarea formControlName="content" rows="4" placeholder="Ej: 3 rounds · 10 air squats · 10 push-ups · 200m run" class="w-full"></textarea>
+              @if (warmUpForm.get('content')?.invalid && warmUpForm.get('content')?.touched) {
+                <small class="error-msg">Ingresa el contenido del calentamiento.</small>
+              }
+            </div>
+          </div>
+        }
+
+        <!-- ==================== STRENGTH FORM ==================== -->
+        @if (activeEditBlockType === 'STRENGTH') {
+          <div class="dynamic-editor-form" [formGroup]="strengthForm">
+            <div class="field">
+              <label for="str-title">Título del bloque</label>
+              <input id="str-title" type="text" pInputText formControlName="title" class="w-full"/>
+            </div>
+
+            <div class="field">
+              <label for="str-exercise">Ejercicio *</label>
+              <input id="str-exercise" type="text" pInputText formControlName="exercise" placeholder="Ej: Back Squat, Deadlift..." class="w-full"/>
+              @if (strengthForm.get('exercise')?.invalid && strengthForm.get('exercise')?.touched) {
+                <small class="error-msg">Ingresa el ejercicio de fuerza.</small>
+              }
+            </div>
+
+            <div class="row">
+              <div class="field col">
+                <label for="str-sets">Series *</label>
+                <p-inputnumber id="str-sets" formControlName="sets" [min]="1" class="w-full"></p-inputnumber>
+                @if (strengthForm.get('sets')?.invalid && strengthForm.get('sets')?.touched) {
+                  <small class="error-msg">Requerido mayor a 0.</small>
+                }
+              </div>
+              <div class="field col">
+                <label for="str-reps">Reps *</label>
+                <p-inputnumber id="str-reps" formControlName="reps" [min]="1" class="w-full"></p-inputnumber>
+                @if (strengthForm.get('reps')?.invalid && strengthForm.get('reps')?.touched) {
+                  <small class="error-msg">Requerido mayor a 0.</small>
+                }
+              </div>
+            </div>
+
+            <div class="row">
+              <div class="field col">
+                <label for="str-weight">Peso objetivo (kg) (opcional)</label>
+                <p-inputnumber id="str-weight" formControlName="targetWeightKg" [min]="0" placeholder="Ej: 45" class="w-full"></p-inputnumber>
+              </div>
+              <div class="field col">
+                <label for="str-rest">Descanso (segundos) (opcional)</label>
+                <p-inputnumber id="str-rest" formControlName="restSeconds" [min]="0" placeholder="Ej: 90" class="w-full"></p-inputnumber>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="str-notes">Notas</label>
+              <textarea id="str-notes" pTextarea formControlName="notes" rows="2" placeholder="Ej: Enfocar técnica..." class="w-full"></textarea>
+            </div>
+          </div>
+        }
+
+        <!-- ==================== WOD FORM ==================== -->
+        @if (activeEditBlockType === 'WOD') {
+          <div class="dynamic-editor-form" [formGroup]="wodForm">
+            <div class="field">
+              <label for="wod-title">Título del bloque</label>
+              <input id="wod-title" type="text" pInputText formControlName="title" class="w-full"/>
+            </div>
+
+            <div class="row">
+              <div class="field col">
+                <label for="wod-format">Formato *</label>
+                <p-select id="wod-format" [options]="wodFormats" formControlName="format" optionLabel="label" optionValue="value" class="w-full"></p-select>
+              </div>
+              <div class="field col">
+                <label for="wod-duration">Duración / Time cap (min)</label>
+                <p-inputnumber id="wod-duration" formControlName="durationMinutes" [min]="0" class="w-full"></p-inputnumber>
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="wod-movements">Movimientos / Ejercicios *</label>
+              <textarea id="wod-movements" pTextarea formControlName="movements" rows="4" placeholder="Ej: 10 wall balls · 8 burpees · 6 box jumps" class="w-full"></textarea>
+              @if (wodForm.get('movements')?.invalid && wodForm.get('movements')?.touched) {
+                <small class="error-msg">Ingresa los movimientos del WOD.</small>
+              }
+            </div>
+
+            <div class="field">
+              <label for="wod-scoreExpected">Tipo de score esperado *</label>
+              <p-select id="wod-scoreExpected" [options]="scoreTypes" formControlName="scoreExpected" optionLabel="label" optionValue="value" class="w-full"></p-select>
+            </div>
+
+            <div class="field">
+              <label for="wod-notes">Notas</label>
+              <textarea id="wod-notes" pTextarea formControlName="notes" rows="2" placeholder="Opcional..." class="w-full"></textarea>
+            </div>
+          </div>
+        }
+
+        <!-- ==================== CARDIO FORM ==================== -->
+        @if (activeEditBlockType === 'CARDIO') {
+          <div class="dynamic-editor-form" [formGroup]="cardioForm">
+            <div class="field">
+              <label for="cardio-title">Título del bloque</label>
+              <input id="cardio-title" type="text" pInputText formControlName="title" class="w-full"/>
+            </div>
+
+            <div class="row">
+              <div class="field col">
+                <label for="cardio-modality">Modalidad *</label>
+                <p-select id="cardio-modality" [options]="cardioModalities" formControlName="modality" optionLabel="label" optionValue="value" class="w-full"></p-select>
+              </div>
+              <div class="field col">
+                <label for="cardio-target">Distancia / Duración objetivo *</label>
+                <input id="cardio-target" type="text" pInputText formControlName="target" placeholder="Ej: 800 m, 30 min..." class="w-full"/>
+                @if (cardioForm.get('target')?.invalid && cardioForm.get('target')?.touched) {
+                  <small class="error-msg">Requerido.</small>
+                }
+              </div>
+            </div>
+
+            <div class="field">
+              <label for="cardio-intensity">Intensidad (opcional)</label>
+              <p-select id="cardio-intensity" [options]="intensityOptions" formControlName="intensity" optionLabel="label" optionValue="value" class="w-full"></p-select>
+            </div>
+
+            <div class="field">
+              <label for="cardio-notes">Notas</label>
+              <textarea id="cardio-notes" pTextarea formControlName="notes" rows="2" placeholder="Ej: Ritmo constante..." class="w-full"></textarea>
+            </div>
+          </div>
+        }
+
+        <!-- ==================== FREE FORM ==================== -->
+        @if (activeEditBlockType === 'FREE') {
+          <div class="dynamic-editor-form" [formGroup]="freeForm">
+            <div class="field">
+              <label for="free-title">Título del bloque</label>
+              <input id="free-title" type="text" pInputText formControlName="title" class="w-full"/>
+            </div>
+
+            <div class="field">
+              <label for="free-text">Texto libre *</label>
+              <textarea id="free-text" pTextarea formControlName="text" rows="5" placeholder="Ej: Movilidad de hombros y handstand..." class="w-full"></textarea>
+              @if (freeForm.get('text')?.invalid && freeForm.get('text')?.touched) {
+                <small class="error-msg">Ingresa el texto libre descriptivo.</small>
+              }
+            </div>
+          </div>
+        }
 
       </div>
+
+      <!-- Action buttons bottom editor -->
+      <div class="footer-actions">
+        <p-button 
+          type="button" 
+          label="Guardar bloque" 
+          icon="pi pi-check" 
+          (click)="saveBlockPrescription()"
+          styleClass="primary-nav-btn"
+        ></p-button>
+        
+        <p-button 
+          type="button" 
+          label="Volver a bloques" 
+          icon="pi pi-arrow-left"
+          (click)="cancelBlockEdit()"
+          styleClass="secondary-nav-btn"
+        ></p-button>
+      </div>
+
     </div>
   }
 

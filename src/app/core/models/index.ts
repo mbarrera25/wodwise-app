@@ -123,4 +123,118 @@ export interface UserGoal extends SyncableModel {
   deadline?: string; // YYYY-MM-DD
   status: 'active' | 'achieved' | 'failed';
   createdAt: string;
+  updatedAt?: string;
+}
+
+// =====================================================================
+// MODELO WIZARD DE ENTRENAMIENTO EN 3 PASOS (FASE 2.5)
+// =====================================================================
+
+export type WizardTrainingType = 'CROSSFIT' | 'HYROX' | 'STRENGTH' | 'CARDIO' | 'FREE';
+
+export type TrainingStatus = 'DRAFT' | 'COMPLETED';
+
+export type BlockType =
+  | 'WARM_UP'
+  | 'STRENGTH'
+  | 'WOD'
+  | 'CARDIO'
+  | 'FREE'
+  | 'SKILL'
+  | 'ACCESSORY'
+  | 'COOLDOWN'
+  | 'CUSTOM';
+
+export type WodFormat =
+  | 'AMRAP'
+  | 'EMOM'
+  | 'FOR_TIME'
+  | 'INTERVALS'
+  | 'CHIPPER'
+  | 'FREE';
+
+export type ScoreType =
+  | 'NONE'
+  | 'TIME'
+  | 'ROUNDS_REPS'
+  | 'REPS'
+  | 'CALORIES'
+  | 'DISTANCE'
+  | 'LOAD';
+
+export interface TrainingBlock {
+  id: string;
+  order: number;
+  type: BlockType;
+  title: string;
+  prescription: BlockPrescription;
+  scoreExpected?: ScoreType;
+  requiresResult: boolean;
+  result?: BlockResult;
+  notes?: string;
+}
+
+export type BlockPrescription =
+  | WarmUpPrescription
+  | StrengthPrescription
+  | WodPrescription
+  | CardioPrescription
+  | FreePrescription;
+
+export interface WarmUpPrescription {
+  kind: 'WARM_UP';
+  inputType: 'TEXT' | 'EXERCISE_LIST';
+  content: string;
+}
+
+export interface StrengthPrescription {
+  kind: 'STRENGTH';
+  exercise: string;
+  sets: number;
+  reps: number;
+  targetWeightKg?: number;
+  restSeconds?: number;
+  notes?: string;
+}
+
+export interface WodPrescription {
+  kind: 'WOD';
+  format: WodFormat;
+  durationMinutes?: number;
+  timeCapMinutes?: number;
+  movements: string;
+  scoreExpected: ScoreType;
+  notes?: string;
+}
+
+export interface CardioPrescription {
+  kind: 'CARDIO';
+  modality: 'RUN' | 'ROW' | 'BIKE' | 'SKI' | 'WALK' | 'OTHER';
+  target: string;
+  intensity?: 'LOW' | 'MODERATE' | 'HIGH';
+  notes?: string;
+}
+
+export interface FreePrescription {
+  kind: 'FREE';
+  text: string;
+}
+
+export interface BlockResult {
+  scoreType: ScoreType;
+  value: string;
+  rpe?: number;
+  scaling?: 'RX' | 'SCALED';
+  notes?: string;
+}
+
+export interface Training {
+  id: string;
+  name: string;
+  date: string;
+  trainingType: WizardTrainingType;
+  status: TrainingStatus;
+  blocks: TrainingBlock[];
+  createdAt: string;
+  updatedAt: string;
 }
