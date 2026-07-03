@@ -592,10 +592,11 @@ export class WorkoutFormPage implements OnInit {
 
     // Compile dynamic Training object to relational Workout schema
     const workout = this.mapTrainingToWorkout(this.activeTraining);
-    this.workoutService.addWorkout(workout);
     
-    // Redirect to evaluation page
-    this.router.navigate(['/evaluation']);
+    this.workoutService.addWorkout(workout).then(() => {
+      // Redirect to evaluation page
+      this.router.navigate(['/evaluation']);
+    });
   }
 
   private mapTrainingToWorkout(training: Training): any {
