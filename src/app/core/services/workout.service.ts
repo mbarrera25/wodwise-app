@@ -1,7 +1,8 @@
-import { Injectable, computed, inject, signal } from '@angular/core';
+import { Injectable, computed, inject, signal, effect } from '@angular/core';
 import { Workout } from '../models';
 import { TrainingRepository } from '../repositories/training.repository';
 import { LocalMigrationService } from './local-migration.service';
+import { AuthService } from './auth.service';
 
 @Injectable({
   providedIn: 'root'
@@ -9,6 +10,7 @@ import { LocalMigrationService } from './local-migration.service';
 export class WorkoutService {
   private readonly trainingRepository = inject(TrainingRepository);
   private readonly migrationService = inject(LocalMigrationService);
+  private readonly authService = inject(AuthService);
   private readonly workoutsSignal = signal<Workout[]>([]);
 
   readonly workouts = this.workoutsSignal.asReadonly();
@@ -29,7 +31,11 @@ export class WorkoutService {
   });
 
   constructor() {
-    this.loadWorkouts();
+    // Reload workouts reactively when user authentication status changes (login, logout, session restoration)
+    effect(() => {
+      const user = this.authService.currentUser();
+      this.loadWorkouts();
+    });
   }
 
   // Load workouts asynchronously from the hybrid repository
