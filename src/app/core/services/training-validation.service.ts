@@ -93,6 +93,8 @@ export class TrainingValidationService {
         const res = block.result;
         if (!res || !res.value || res.value.trim() === '') {
           errors.push(`Resultado de ${name} (requerido)`);
+        } else if (res.rpe !== undefined && (res.rpe < 1 || res.rpe > 10 || isNaN(res.rpe))) {
+          errors.push(`RPE de ${name} (debe estar entre 1 y 10)`);
         }
       }
     });

@@ -3,6 +3,7 @@ import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angula
 import { Router } from '@angular/router';
 import { CheckInService } from '../../../../core/services/check-in.service';
 import { DailyCheckInFactory } from '../../../../core/utils/factories';
+import { toLocalDateString } from '../../../../core/utils/date-utils';
 import { Mood, MOOD_LABELS } from '../../../../core/enums';
 import { CommonModule } from '@angular/common';
 
@@ -47,7 +48,7 @@ export class CheckInPage {
     if (this.checkInForm.invalid) return;
 
     const formValue = this.checkInForm.value;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = toLocalDateString(new Date());
 
     const checkIn = DailyCheckInFactory.create({
       ...formValue,

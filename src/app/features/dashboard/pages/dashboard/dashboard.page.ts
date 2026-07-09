@@ -8,6 +8,7 @@ import { TrainingLoadService } from '../../../../core/services/training-load.ser
 import { PersonalRecordService, PersonalRecord } from '../../../../core/services/personal-record.service';
 import { RecoveryRecommendationService } from '../../../../core/services/recovery-recommendation.service';
 import { STORAGE_KEYS } from '../../../../core/constants';
+import { toLocalDateString } from '../../../../core/utils/date-utils';
 import { UserProfile, Workout, DailyCheckIn, CoachEvaluation } from '../../../../core/models';
 import { WORKOUT_TYPE_LABELS, SectionType } from '../../../../core/enums';
 import { CommonModule } from '@angular/common';
@@ -39,7 +40,7 @@ export class DashboardPage {
   readonly hasCheckInToday = computed(() => {
     const latest = this.latestCheckIn();
     if (!latest) return false;
-    const todayStr = new Date().toISOString().split('T')[0];
+    const todayStr = toLocalDateString(new Date());
     return latest.date === todayStr;
   });
 

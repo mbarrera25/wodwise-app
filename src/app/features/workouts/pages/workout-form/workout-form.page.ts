@@ -1,17 +1,20 @@
-import { Component, inject, OnInit, isDevMode } from '@angular/core';
-import { FormBuilder, FormGroup, FormArray, ReactiveFormsModule, Validators } from '@angular/forms';
+import { Component, inject, OnInit, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
+import { FormBuilder, FormGroup, ReactiveFormsModule, Validators } from '@angular/forms';
 import { Router } from '@angular/router';
 import { WorkoutService } from '../../../../core/services/workout.service';
 import { BlockFactoryService } from '../../../../core/services/block-factory.service';
 import { BlockSummaryService } from '../../../../core/services/block-summary.service';
 import { TrainingValidationService } from '../../../../core/services/training-validation.service';
-import { WorkoutFactory } from '../../../../core/utils/factories';
-import { 
-  Training, 
-  TrainingBlock, 
-  BlockType, 
-  WodFormat, 
-  ScoreType, 
+import { TrainingMapperService } from '../../../../core/services/training-mapper.service';
+import { NotificationService } from '../../../../core/services/notification.service';
+import { toLocalDateString } from '../../../../core/utils/date-utils';
+import {
+  Training,
+  TrainingBlock,
+  BlockType,
+  WodFormat,
+  ScoreType,
   WizardTrainingType,
   WarmUpPrescription,
   StrengthPrescription,
@@ -19,7 +22,6 @@ import {
   CardioPrescription,
   FreePrescription
 } from '../../../../core/models';
-import { WorkoutType, SectionType } from '../../../../core/enums';
 import { CommonModule } from '@angular/common';
 
 import { InputText } from 'primeng/inputtext';
@@ -50,15 +52,18 @@ export class WorkoutFormPage implements OnInit {
   private readonly factoryService = inject(BlockFactoryService);
   private readonly summaryService = inject(BlockSummaryService);
   private readonly validationService = inject(TrainingValidationService);
+  private readonly mapperService = inject(TrainingMapperService);
+  private readonly notificationService = inject(NotificationService);
+  private readonly destroyRef = inject(DestroyRef);
 
   // Stepper state
   currentStep = 1;
 
   // Wizard Training draft state
   activeTraining: Training = {
-    id: Math.random().toString(36).substring(2, 9),
+    id: crypto.randomUUID(),
     name: 'CrossFit de hoy',
-    date: new Date().toISOString().split('T')[0],
+    date: toLocalDateString(new Date()),
     trainingType: 'CROSSFIT',
     status: 'DRAFT',
     blocks: [],
@@ -74,7 +79,7 @@ export class WorkoutFormPage implements OnInit {
   // Wizard steps form groups
   basicForm = this.fb.group({
     name: ['CrossFit de hoy', [Validators.required, Validators.minLength(3)]],
-    date: [new Date().toISOString().split('T')[0], Validators.required],
+    date: [toLocalDateString(new Date()), Validators.required],
     trainingType: ['CROSSFIT' as WizardTrainingType, Validators.required]
   });
 
@@ -179,7 +184,7 @@ export class WorkoutFormPage implements OnInit {
     this.selectQuickTemplate('crossfit');
 
     // Watch basic form changes to sync with activeTraining state
-    this.basicForm.valueChanges.subscribe(val => {
+    this.basicForm.valueChanges.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(val => {
       this.activeTraining.name = val.name || '';
       this.activeTraining.date = val.date || '';
       this.activeTraining.trainingType = val.trainingType || 'CROSSFIT';
@@ -286,6 +291,9 @@ export class WorkoutFormPage implements OnInit {
   prevStep(): void {
     this.showErrorSummary = false;
     if (this.currentStep > 1) {
+      if (this.currentStep === 3) {
+        this.syncResultsToTraining(); // Preserve what the user typed in Step 3
+      }
       this.currentStep--;
     }
   }
@@ -293,7 +301,11 @@ export class WorkoutFormPage implements OnInit {
   goToStep(step: number): void {
     if (step === 2 && !this.step1Complete) return;
     if (step === 3 && (!this.step1Complete || !this.step2Complete)) return;
-    
+
+    if (this.currentStep === 3 && step !== 3) {
+      this.syncResultsToTraining(); // Preserve what the user typed in Step 3
+    }
+
     this.showErrorSummary = false;
     this.currentStep = step;
     if (step === 3) {
@@ -551,33 +563,35 @@ export class WorkoutFormPage implements OnInit {
     return found ? found.label : val;
   }
 
+  // Copy the current resultsForm values back into the activeTraining state.
+  // Runs on every step-3 exit and before validating on submit, so typed
+  // values are never lost and validation always sees fresh data.
+  private syncResultsToTraining(): void {
+    this.activeTraining.blocks.forEach(block => {
+      if (!block.requiresResult) return;
+      const resVal = this.resultsForm.get(block.id)?.value;
+      if (resVal) {
+        block.result = {
+          scoreType: block.scoreExpected || 'NONE',
+          value: resVal.value || '',
+          rpe: resVal.rpe !== null && resVal.rpe !== undefined ? Number(resVal.rpe) : undefined,
+          scaling: resVal.scaling || 'RX',
+          notes: resVal.notes || ''
+        };
+      }
+    });
+  }
+
   // 7. Relational Model Compiler & Save
-  onSubmit(): void {
+  async onSubmit(): Promise<void> {
     this.invalidFields = [];
     this.showErrorSummary = false;
 
-    // Check final wizard completeness
+    // Always persist what the user typed before validating
+    this.syncResultsToTraining();
+
     const step1Errors = this.validationService.validateStep1(this.activeTraining);
     const step2Errors = this.validationService.validateStep2(this.activeTraining);
-    
-    // Save current values in the resultsForm back into the activeTraining state
-    if (this.resultsForm.valid) {
-      this.activeTraining.blocks.forEach(block => {
-        if (block.requiresResult) {
-          const resVal = this.resultsForm.get(block.id)?.value;
-          if (resVal) {
-            block.result = {
-              scoreType: block.scoreExpected || 'NONE',
-              value: resVal.value || '',
-              rpe: Number(resVal.rpe || 8),
-              scaling: resVal.scaling || 'RX',
-              notes: resVal.notes || ''
-            };
-          }
-        }
-      });
-    }
-
     const step3Errors = this.validationService.validateStep3(this.activeTraining);
 
     if (step1Errors.length > 0) this.invalidFields.push(...step1Errors);
@@ -591,121 +605,15 @@ export class WorkoutFormPage implements OnInit {
     }
 
     // Compile dynamic Training object to relational Workout schema
-    const workout = this.mapTrainingToWorkout(this.activeTraining);
-    
-    this.workoutService.addWorkout(workout).then(() => {
-      // Redirect to evaluation page
+    const workout = this.mapperService.mapTrainingToWorkout(this.activeTraining);
+
+    try {
+      await this.workoutService.addWorkout(workout);
+      this.notificationService.success('Entrenamiento guardado.');
       this.router.navigate(['/evaluation']);
-    });
-  }
-
-  private mapTrainingToWorkout(training: Training): any {
-    let typeVal = WorkoutType.Wod;
-    if (training.trainingType === 'STRENGTH') typeVal = WorkoutType.Strength;
-    if (training.trainingType === 'CARDIO') typeVal = WorkoutType.Cardio;
-
-    const sections = training.blocks.map(block => {
-      let secType = SectionType.Wod;
-      if (block.type === 'WARM_UP') secType = SectionType.WarmUp;
-      if (block.type === 'STRENGTH') secType = SectionType.Strength;
-      if (block.type === 'CARDIO') secType = SectionType.Metcon;
-      if (block.type === 'FREE') secType = SectionType.Notes;
-      if (block.type === 'SKILL') secType = SectionType.Skill;
-      if (block.type === 'ACCESSORY') secType = SectionType.Accessory;
-      if (block.type === 'COOLDOWN') secType = SectionType.Cooldown;
-
-      const exercises: string[] = [];
-      let score: any = undefined;
-
-      const p = block.prescription;
-      if (p.kind === 'WARM_UP') {
-        if (p.content) {
-          exercises.push(...p.content.split(/[,\n]/).map(e => e.trim()).filter(e => e.length > 0));
-        }
-      } else if (p.kind === 'STRENGTH') {
-        if (p.exercise) exercises.push(p.exercise);
-        score = {
-          sets: p.sets,
-          reps: p.reps,
-          weightKg: p.targetWeightKg || undefined,
-          notes: p.notes || undefined
-        };
-      } else if (p.kind === 'WOD') {
-        if (p.movements) {
-          exercises.push(...p.movements.split(/[,\n]/).map(e => e.trim()).filter(e => e.length > 0));
-        }
-        score = {
-          notes: p.notes || undefined
-        };
-      } else if (p.kind === 'CARDIO') {
-        exercises.push(`${p.modality}: ${p.target}`);
-        score = {
-          notes: p.notes || undefined
-        };
-      } else if (p.kind === 'FREE') {
-        if (p.text) exercises.push(p.text);
-      }
-
-      if (block.requiresResult && block.result) {
-        if (!score) score = {};
-        
-        const res = block.result;
-        score.notes = res.notes || score.notes;
-
-        if (res.scoreType === 'LOAD') {
-          score.weightKg = Number(res.value) || score.weightKg;
-        } else if (res.scoreType === 'TIME') {
-          score.finalTime = res.value;
-        } else if (res.scoreType === 'ROUNDS_REPS') {
-          const match = res.value.match(/(\d+)\s*round/i);
-          const repsMatch = res.value.match(/\+\s*(\d+)\s*rep/i);
-          score.rounds = match ? Number(match[1]) : undefined;
-          score.repsCompleted = repsMatch ? Number(repsMatch[1]) : undefined;
-          
-          if (!score.rounds && !isNaN(Number(res.value))) {
-            score.rounds = Number(res.value);
-          }
-        } else if (res.scoreType === 'REPS') {
-          score.reps = Number(res.value);
-        } else if (res.scoreType === 'CALORIES') {
-          score.calories = Number(res.value);
-        } else if (res.scoreType === 'DISTANCE') {
-          score.distanceMeters = Number(res.value);
-        }
-      }
-
-      return {
-        type: secType,
-        name: block.title,
-        exercises,
-        score: score && Object.keys(score).length > 0 ? score : undefined
-      };
-    });
-
-    const rpeValues = training.blocks
-      .filter(b => b.requiresResult && b.result?.rpe)
-      .map(b => b.result!.rpe!);
-    const avgRpe = rpeValues.length > 0
-      ? Math.round(rpeValues.reduce((a, b) => a + b, 0) / rpeValues.length)
-      : 8;
-
-    const overallNotes = training.blocks
-      .filter(b => b.notes || (b.requiresResult && b.result?.notes))
-      .map(b => `${b.title}: ${b.notes || b.result?.notes}`)
-      .join('\n');
-
-    return WorkoutFactory.create({
-      date: training.date,
-      type: typeVal,
-      name: training.name,
-      mainExercises: sections.flatMap(s => s.exercises),
-      sections,
-      perceivedDifficulty: avgRpe,
-      perceivedIntensity: avgRpe,
-      energyBefore: 7,
-      energyAfter: 5,
-      notes: overallNotes || undefined
-    });
+    } catch {
+      this.notificationService.error('No se pudo guardar el entrenamiento. Inténtalo de nuevo.');
+    }
   }
 
   cancel(): void {
