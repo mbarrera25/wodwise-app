@@ -8,10 +8,16 @@ import { WorkoutType, SectionType } from '../enums';
 export class LocalMigrationService {
 
   migrateWorkouts(workouts: Workout[]): Workout[] {
-    let updated = false;
     const migrated = workouts.map(workout => {
-      if (!workout.sections || workout.sections.length === 0) {
-        updated = true;
+      // Only migrate legacy local workouts (flat fields, no sections).
+      // Remote workouts arriving without sections (e.g. a partial fetch)
+      // must not get a fabricated section from fields they never had.
+      const hasLegacyData = workout.weightKg != null || workout.reps != null
+        || workout.rounds != null || !!workout.finalTime
+        || (workout.mainExercises?.length ?? 0) > 0;
+
+      if ((!workout.sections || workout.sections.length === 0)
+        && workout.syncStatus !== 'synced' && hasLegacyData) {
         const score: SectionScore = {};
         
         if (workout.weightKg !== undefined && workout.weightKg !== null) score.weightKg = workout.weightKg;

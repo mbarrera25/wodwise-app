@@ -29,14 +29,6 @@ export class CheckInService {
     }
   }
 
-  getCheckIns(): DailyCheckIn[] {
-    return this.checkInsSignal();
-  }
-
-  getCheckInByDate(date: string): DailyCheckIn | undefined {
-    return this.checkInsSignal().find(c => c.date === date);
-  }
-
   saveDailyCheckIn(checkIn: DailyCheckIn): void {
     this.checkInsSignal.update(current => {
       const index = current.findIndex(c => c.date === checkIn.date);

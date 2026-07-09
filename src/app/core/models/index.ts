@@ -83,8 +83,6 @@ export interface Workout extends SyncableModel {
   updatedAt?: string;
 }
 
-export type TrainingSession = Workout;
-
 export interface CoachEvaluation {
   trainingLoad: TrainingLoad;
   recoveryStatus: RecoveryStatus;

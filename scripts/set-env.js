@@ -35,5 +35,3 @@ if (!fs.existsSync(targetDir)) {
 // Write the file
 fs.writeFileSync(targetPath, envConfig, { encoding: 'utf8' });
 console.log(`[set-env.js] Successfully generated environment.production.ts at ${targetPath}`);
-console.log(`[set-env.js] Supabase URL configured: ${supabaseUrl}`);
-console.log(`[set-env.js] Supabase Key starts with: ${supabaseKey.substring(0, 8)}...`);
