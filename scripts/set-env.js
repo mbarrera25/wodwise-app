@@ -25,13 +25,20 @@ const envConfig = `export const environment = {
 `;
 
 const targetDir = path.join(__dirname, '../src/environments');
-const targetPath = path.join(targetDir, 'environment.production.ts');
 
 // Ensure target directory exists
 if (!fs.existsSync(targetDir)) {
   fs.mkdirSync(targetDir, { recursive: true });
 }
 
-// Write the file
-fs.writeFileSync(targetPath, envConfig, { encoding: 'utf8' });
-console.log(`[set-env.js] Successfully generated environment.production.ts at ${targetPath}`);
+// Write environment.production.ts (the fileReplacements target for the production
+// build config) AND environment.ts (the file actually imported by the app code).
+// environment.ts is gitignored and not committed, so on a clean checkout (CI/Vercel)
+// it doesn't exist until this script creates it — without it, Angular's
+// `fileReplacements` has nothing to replace and the build fails with
+// "Could not resolve '../../../environments/environment'".
+['environment.production.ts', 'environment.ts'].forEach(fileName => {
+  const targetPath = path.join(targetDir, fileName);
+  fs.writeFileSync(targetPath, envConfig, { encoding: 'utf8' });
+  console.log(`[set-env.js] Successfully generated ${fileName} at ${targetPath}`);
+});
