@@ -1,5 +1,6 @@
 import { Injectable, inject } from '@angular/core';
 import { AuthService } from './auth.service';
+import { SyncableModel } from '../models';
 import { LocalTrainingRepository } from '../repositories/local/local-training.repository';
 import { SupabaseTrainingRepository } from '../repositories/supabase/supabase-training.repository';
 import { LocalProgressRepository } from '../repositories/local/local-progress.repository';
@@ -47,87 +48,67 @@ export class SyncService {
     return false;
   }
 
-  async syncLocalDataToRemote(): Promise<{ success: boolean; syncedCount: number }> {
+  async syncLocalDataToRemote(): Promise<{ success: boolean; syncedCount: number; failedCount: number }> {
     if (!this.authService.isAuthenticated()) {
-      return { success: false, syncedCount: 0 };
+      return { success: false, syncedCount: 0, failedCount: 0 };
     }
 
-    let syncedCount = 0;
-    try {
-      // 1. Sync workouts
-      const workouts = await this.localTraining.getWorkouts();
-      for (const w of workouts) {
-        if (w.syncStatus !== 'synced') {
-          // Push to remote
-          await this.remoteTraining.addWorkout(w);
-          
-          // Mark as synced locally
-          const updatedWorkout = {
-            ...w,
-            syncStatus: 'synced' as const,
-            remoteId: w.id,
-            lastSyncedAt: new Date().toISOString()
-          };
-          await this.localTraining.addWorkout(updatedWorkout);
-          syncedCount++;
-        }
-      }
+    const results = [
+      await this.syncCollection(
+        await this.localTraining.getWorkouts(),
+        w => this.remoteTraining.addWorkout(w),
+        w => this.localTraining.addWorkout(w)
+      ),
+      await this.syncCollection(
+        await this.localProgress.getProgressLogs(),
+        p => this.remoteProgress.addProgressLog(p),
+        p => this.localProgress.addProgressLog(p)
+      ),
+      await this.syncCollection(
+        await this.localMeal.getMealLogs(),
+        m => this.remoteMeal.addMealLog(m),
+        m => this.localMeal.addMealLog(m)
+      ),
+      await this.syncCollection(
+        await this.localGoal.getGoals(),
+        g => this.remoteGoal.addGoal(g),
+        g => this.localGoal.addGoal(g)
+      )
+    ];
 
-      // 2. Sync progress logs
-      const progress = await this.localProgress.getProgressLogs();
-      for (const p of progress) {
-        if (p.syncStatus !== 'synced') {
-          await this.remoteProgress.addProgressLog(p);
-          
-          const updated = {
-            ...p,
-            syncStatus: 'synced' as const,
-            remoteId: p.id,
-            lastSyncedAt: new Date().toISOString()
-          };
-          await this.localProgress.addProgressLog(updated);
-          syncedCount++;
-        }
-      }
+    const syncedCount = results.reduce((sum, r) => sum + r.synced, 0);
+    const failedCount = results.reduce((sum, r) => sum + r.failed, 0);
+    return { success: failedCount === 0, syncedCount, failedCount };
+  }
 
-      // 3. Sync meals
-      const meals = await this.localMeal.getMealLogs();
-      for (const m of meals) {
-        if (m.syncStatus !== 'synced') {
-          await this.remoteMeal.addMealLog(m);
-          
-          const updated = {
-            ...m,
-            syncStatus: 'synced' as const,
-            remoteId: m.id,
-            lastSyncedAt: new Date().toISOString()
-          };
-          await this.localMeal.addMealLog(updated);
-          syncedCount++;
-        }
-      }
+  // Pushes each unsynced item to remote and only marks it as synced locally
+  // if the remote write succeeded; a failing item doesn't abort the rest.
+  private async syncCollection<T extends SyncableModel & { id: string }>(
+    items: T[],
+    pushRemote: (item: T) => Promise<void>,
+    saveLocal: (item: T) => Promise<void>
+  ): Promise<{ synced: number; failed: number }> {
+    let synced = 0;
+    let failed = 0;
 
-      // 4. Sync goals
-      const goals = await this.localGoal.getGoals();
-      for (const g of goals) {
-        if (g.syncStatus !== 'synced') {
-          await this.remoteGoal.addGoal(g);
-          
-          const updated = {
-            ...g,
-            syncStatus: 'synced' as const,
-            remoteId: g.id,
-            lastSyncedAt: new Date().toISOString()
-          };
-          await this.localGoal.addGoal(updated);
-          syncedCount++;
-        }
-      }
+    for (const item of items) {
+      if (item.syncStatus === 'synced') continue;
 
-      return { success: true, syncedCount };
-    } catch (err) {
-      console.error('Error during data synchronization:', err);
-      return { success: false, syncedCount };
+      try {
+        await pushRemote(item);
+        await saveLocal({
+          ...item,
+          syncStatus: 'synced' as const,
+          remoteId: item.id,
+          lastSyncedAt: new Date().toISOString()
+        });
+        synced++;
+      } catch (err) {
+        console.error(`Error syncing item ${item.id}:`, err);
+        failed++;
+      }
     }
+
+    return { synced, failed };
   }
 }

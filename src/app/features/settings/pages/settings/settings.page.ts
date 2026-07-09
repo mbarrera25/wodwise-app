@@ -1,8 +1,10 @@
-import { Component, inject, OnInit, signal, computed } from '@angular/core';
+import { Component, inject, OnInit, signal, computed, DestroyRef } from '@angular/core';
+import { takeUntilDestroyed } from '@angular/core/rxjs-interop';
 import { CommonModule } from '@angular/common';
 import { Router, ActivatedRoute, RouterLink } from '@angular/router';
 import { AuthService } from '../../../../core/services/auth.service';
 import { SyncService } from '../../../../core/services/sync.service';
+import { NotificationService } from '../../../../core/services/notification.service';
 import { Button } from 'primeng/button';
 
 @Component({
@@ -17,6 +19,8 @@ export class SettingsPage implements OnInit {
   private readonly route = inject(ActivatedRoute);
   private readonly authService = inject(AuthService);
   private readonly syncService = inject(SyncService);
+  private readonly notificationService = inject(NotificationService);
+  private readonly destroyRef = inject(DestroyRef);
 
   readonly isAuthenticated = this.authService.isAuthenticated;
   readonly profile = this.authService.userProfile;
@@ -30,7 +34,7 @@ export class SettingsPage implements OnInit {
     await this.checkLocalData();
 
     // Check if redirect wants to trigger sync immediately
-    this.route.queryParams.subscribe(params => {
+    this.route.queryParams.pipe(takeUntilDestroyed(this.destroyRef)).subscribe(params => {
       if (params['sync'] === 'true' && this.isAuthenticated() && this.hasLocalData()) {
         this.performSync();
       }
@@ -55,12 +59,18 @@ export class SettingsPage implements OnInit {
     if (result.success) {
       this.hasLocalData.set(false);
       this.syncSuccessMessage.set(`¡Sincronización completada! Se subieron ${result.syncedCount} registros a tu nube.`);
+      this.notificationService.success(`Se subieron ${result.syncedCount} registros a tu nube.`, 'Sincronización completada');
       // Reload profile
       if (this.user()) {
         await this.authService.loadUserProfile(this.user()!.id);
       }
     } else {
-      alert('Hubo un error al sincronizar. Por favor, inténtalo de nuevo.');
+      await this.checkLocalData();
+      this.notificationService.error(
+        result.failedCount > 0
+          ? `Se subieron ${result.syncedCount} registros, pero ${result.failedCount} fallaron. Inténtalo de nuevo.`
+          : 'Hubo un error al sincronizar. Por favor, inténtalo de nuevo.'
+      );
     }
   }
 

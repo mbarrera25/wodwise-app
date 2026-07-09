@@ -46,38 +46,24 @@ export class SupabaseProgressRepository implements ProgressRepository {
   async addProgressLog(log: BodyProgress): Promise<void> {
     const supabase = this.authService.getSupabaseClient();
     const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
+    if (!supabase || !userId) throw new Error('No active session to save body progress');
 
-    try {
-      await supabase
-        .from('body_progress')
-        .upsert({
-          id: log.id,
-          user_id: userId,
-          date: log.date,
-          weight_kg: log.weightKg,
-          body_fat_percentage: log.bodyFatPercentage || null,
-          muscle_mass_kg: log.muscleMassKg || null,
-          notes: log.notes || null,
-          created_at: log.createdAt
-        });
-    } catch (err) {
-      console.error('Exception in SupabaseProgressRepository.addProgressLog:', err);
-    }
-  }
+    const { error } = await supabase
+      .from('body_progress')
+      .upsert({
+        id: log.id,
+        user_id: userId,
+        date: log.date,
+        weight_kg: log.weightKg,
+        body_fat_percentage: log.bodyFatPercentage || null,
+        muscle_mass_kg: log.muscleMassKg || null,
+        notes: log.notes || null,
+        created_at: log.createdAt
+      });
 
-  async clearProgressLogs(): Promise<void> {
-    const supabase = this.authService.getSupabaseClient();
-    const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
-
-    try {
-      await supabase
-        .from('body_progress')
-        .delete()
-        .eq('user_id', userId);
-    } catch (err) {
-      console.error('Exception in SupabaseProgressRepository.clearProgressLogs:', err);
+    if (error) {
+      console.error('Error saving body progress in Supabase:', error);
+      throw error;
     }
   }
 }

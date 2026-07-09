@@ -46,38 +46,24 @@ export class SupabaseGoalRepository implements GoalRepository {
   async addGoal(goal: UserGoal): Promise<void> {
     const supabase = this.authService.getSupabaseClient();
     const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
+    if (!supabase || !userId) throw new Error('No active session to save goal');
 
-    try {
-      await supabase
-        .from('user_goals')
-        .upsert({
-          id: goal.id,
-          user_id: userId,
-          goal_type: goal.goalType,
-          target_value: goal.targetValue,
-          current_value: goal.currentValue || null,
-          deadline: goal.deadline || null,
-          status: goal.status,
-          created_at: goal.createdAt
-        });
-    } catch (err) {
-      console.error('Exception in SupabaseGoalRepository.addGoal:', err);
-    }
-  }
+    const { error } = await supabase
+      .from('user_goals')
+      .upsert({
+        id: goal.id,
+        user_id: userId,
+        goal_type: goal.goalType,
+        target_value: goal.targetValue,
+        current_value: goal.currentValue || null,
+        deadline: goal.deadline || null,
+        status: goal.status,
+        created_at: goal.createdAt
+      });
 
-  async clearGoals(): Promise<void> {
-    const supabase = this.authService.getSupabaseClient();
-    const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
-
-    try {
-      await supabase
-        .from('user_goals')
-        .delete()
-        .eq('user_id', userId);
-    } catch (err) {
-      console.error('Exception in SupabaseGoalRepository.clearGoals:', err);
+    if (error) {
+      console.error('Error saving goal in Supabase:', error);
+      throw error;
     }
   }
 }

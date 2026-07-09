@@ -13,8 +13,13 @@ export class AuthService {
   readonly userProfile = signal<UserProfile | null>(null);
   readonly isAuthenticated = computed(() => !!this.currentUser());
 
+  // Resolves once session restoration finished (or config was invalid).
+  // Awaited by an app initializer so no consumer reads isAuthenticated()
+  // before the session state is known.
+  readonly ready: Promise<void>;
+
   constructor() {
-    this.initSupabase();
+    this.ready = this.initSupabase();
   }
 
   private async initSupabase(): Promise<void> {
@@ -169,7 +174,14 @@ export class AuthService {
       return false;
     }
 
-    this.userProfile.set(profile);
+    // Mirror what was actually persisted (falsy optionals become null in DB)
+    this.userProfile.set({
+      ...profile,
+      age: profile.age || undefined,
+      heightCm: profile.heightCm || undefined,
+      weightKg: profile.weightKg || undefined,
+      updatedAt: payload.updated_at
+    });
     return true;
   }
 }

@@ -77,8 +77,8 @@ export class SupabaseTrainingRepository implements TrainingRepository {
           sections: sortedSections,
           perceivedDifficulty: session.perceived_difficulty,
           perceivedIntensity: session.perceived_intensity,
-          energyBefore: session.energy_before,
-          energyAfter: session.energy_after,
+          energyBefore: session.energy_before ?? undefined,
+          energyAfter: session.energy_after ?? undefined,
           notes: session.notes || undefined,
           createdAt: session.created_at,
           updatedAt: session.updated_at || undefined,
@@ -92,148 +92,55 @@ export class SupabaseTrainingRepository implements TrainingRepository {
     }
   }
 
+  // Persists the whole workout (session + sections + scores + exercises + sets)
+  // through the transactional save_workout RPC: either everything is saved
+  // or nothing changes, so a mid-write failure can't corrupt existing data.
   async addWorkout(workout: Workout): Promise<void> {
     const supabase = this.authService.getSupabaseClient();
     const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
+    if (!supabase || !userId) throw new Error('No active session to save workout');
 
-    try {
-      // Delete existing to cascade-delete all sub-entities and perform a clean reload (implements updates)
-      await supabase
-        .from('training_sessions')
-        .delete()
-        .eq('id', workout.id);
+    const payload = {
+      id: workout.id,
+      date: workout.date,
+      type: workout.type,
+      name: workout.name,
+      durationMinutes: workout.durationMinutes ?? null,
+      perceivedDifficulty: workout.perceivedDifficulty,
+      perceivedIntensity: workout.perceivedIntensity ?? null,
+      energyBefore: workout.energyBefore ?? null,
+      energyAfter: workout.energyAfter ?? null,
+      notes: workout.notes ?? null,
+      createdAt: workout.createdAt,
+      sections: (workout.sections || []).map(sec => ({
+        type: sec.type,
+        name: sec.name ?? null,
+        exercises: sec.exercises,
+        score: sec.score ?? null
+      }))
+    };
 
-      // Insert main training session
-      const { error: sessionErr } = await supabase
-        .from('training_sessions')
-        .insert({
-          id: workout.id,
-          user_id: userId,
-          date: workout.date,
-          type: workout.type,
-          name: workout.name,
-          duration_minutes: workout.durationMinutes || null,
-          perceived_difficulty: workout.perceivedDifficulty,
-          perceived_intensity: workout.perceivedIntensity || workout.perceivedDifficulty,
-          energy_before: workout.energyBefore || 5,
-          energy_after: workout.energyAfter || 5,
-          notes: workout.notes || null,
-          created_at: workout.createdAt
-        });
+    const { error } = await supabase.rpc('save_workout', { payload });
 
-      if (sessionErr) {
-        console.error('Error inserting training_session in Supabase:', sessionErr);
-        throw sessionErr;
-      }
-
-      if (!workout.sections || workout.sections.length === 0) return;
-
-      // Insert sections, exercises, sets, and scores
-      for (let secIdx = 0; secIdx < workout.sections.length; secIdx++) {
-        const sec = workout.sections[secIdx];
-        
-        const { data: secData, error: secErr } = await supabase
-          .from('training_sections')
-          .insert({
-            session_id: workout.id,
-            user_id: userId,
-            type: sec.type,
-            name: sec.name || null,
-            sort_order: secIdx
-          })
-          .select()
-          .single();
-
-        if (secErr || !secData) {
-          console.error('Error inserting training_section:', secErr);
-          throw secErr;
-        }
-
-        // Insert score if present
-        if (sec.score) {
-          const { error: scoreErr } = await supabase
-            .from('section_scores')
-            .insert({
-              section_id: secData.id,
-              user_id: userId,
-              sets: sec.score.sets || null,
-              weight_kg: sec.score.weightKg || null,
-              reps: sec.score.reps || null,
-              final_time: sec.score.finalTime || null,
-              distance_meters: sec.score.distanceMeters || null,
-              calories: sec.score.calories || null,
-              rounds: sec.score.rounds || null,
-              reps_completed: sec.score.repsCompleted || null,
-              notes: sec.score.notes || null
-            });
-
-          if (scoreErr) {
-            console.error('Error inserting section_score:', scoreErr);
-            throw scoreErr;
-          }
-        }
-
-        // Insert exercises
-        for (let exIdx = 0; exIdx < sec.exercises.length; exIdx++) {
-          const exName = sec.exercises[exIdx];
-          
-          const { data: exData, error: exErr } = await supabase
-            .from('section_exercises')
-            .insert({
-              section_id: secData.id,
-              user_id: userId,
-              name: exName,
-              sort_order: exIdx
-            })
-            .select()
-            .single();
-
-          if (exErr || !exData) {
-            console.error('Error inserting section_exercise:', exErr);
-            throw exErr;
-          }
-
-          // Generate default sets if a set count is provided in score
-          if (sec.score && sec.score.sets && sec.score.sets > 0) {
-            const setsPayload = [];
-            for (let i = 1; i <= sec.score.sets; i++) {
-              setsPayload.push({
-                exercise_id: exData.id,
-                user_id: userId,
-                set_number: i,
-                weight_kg: sec.score.weightKg || null,
-                reps: sec.score.reps || null
-              });
-            }
-            const { error: setsErr } = await supabase
-              .from('exercise_sets')
-              .insert(setsPayload);
-
-            if (setsErr) {
-              console.error('Error inserting exercise_sets:', setsErr);
-              throw setsErr;
-            }
-          }
-        }
-      }
-    } catch (err) {
-      console.error('Exception in SupabaseTrainingRepository.addWorkout:', err);
+    if (error) {
+      console.error('Error saving workout via save_workout RPC:', error);
+      throw error;
     }
   }
 
   async clearWorkouts(): Promise<void> {
     const supabase = this.authService.getSupabaseClient();
     const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
+    if (!supabase || !userId) throw new Error('No active session to clear workouts');
 
-    try {
-      await supabase
-        .from('training_sessions')
-        .delete()
-        .eq('user_id', userId);
-    } catch (err) {
-      console.error('Exception in SupabaseTrainingRepository.clearWorkouts:', err);
+    const { error } = await supabase
+      .from('training_sessions')
+      .delete()
+      .eq('user_id', userId);
+
+    if (error) {
+      console.error('Error clearing workouts in Supabase:', error);
+      throw error;
     }
   }
 }

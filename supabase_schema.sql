@@ -216,3 +216,114 @@ CREATE POLICY "Users can manage their own goals"
   ON public.user_goals FOR ALL
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
+
+
+-- =====================================================================
+-- 10. GUARDADO ATÓMICO DE ENTRENAMIENTOS (FASE 3 - corrección de bugs)
+-- Los niveles de energía son opcionales en la app; se relaja el NOT NULL.
+-- =====================================================================
+ALTER TABLE public.training_sessions ALTER COLUMN energy_before DROP NOT NULL;
+ALTER TABLE public.training_sessions ALTER COLUMN energy_after DROP NOT NULL;
+
+-- Reemplaza el patrón delete + inserts múltiples del cliente por una única
+-- función transaccional: si cualquier insert falla, se revierte todo y el
+-- workout original no se pierde. SECURITY INVOKER: las políticas RLS aplican.
+CREATE OR REPLACE FUNCTION public.save_workout(payload jsonb)
+RETURNS void
+LANGUAGE plpgsql
+SECURITY INVOKER
+AS $$
+DECLARE
+  v_user_id uuid := auth.uid();
+  v_session_id uuid := (payload->>'id')::uuid;
+  sec jsonb;
+  v_section_id uuid;
+  v_exercise_id uuid;
+  v_exercise_name text;
+  v_score jsonb;
+  v_sets integer;
+  sec_idx integer := 0;
+  ex_idx integer;
+BEGIN
+  IF v_user_id IS NULL THEN
+    RAISE EXCEPTION 'save_workout: no authenticated user';
+  END IF;
+
+  -- Estrategia de reemplazo: el borrado cascada elimina secciones,
+  -- ejercicios, sets y scores de la versión anterior.
+  DELETE FROM public.training_sessions
+  WHERE id = v_session_id AND user_id = v_user_id;
+
+  INSERT INTO public.training_sessions (
+    id, user_id, date, type, name, duration_minutes,
+    perceived_difficulty, perceived_intensity,
+    energy_before, energy_after, notes, created_at
+  )
+  VALUES (
+    v_session_id,
+    v_user_id,
+    (payload->>'date')::date,
+    payload->>'type',
+    payload->>'name',
+    (payload->>'durationMinutes')::integer,
+    (payload->>'perceivedDifficulty')::integer,
+    COALESCE((payload->>'perceivedIntensity')::integer, (payload->>'perceivedDifficulty')::integer),
+    (payload->>'energyBefore')::integer,
+    (payload->>'energyAfter')::integer,
+    NULLIF(payload->>'notes', ''),
+    COALESCE((payload->>'createdAt')::timestamptz, now())
+  );
+
+  FOR sec IN SELECT * FROM jsonb_array_elements(COALESCE(payload->'sections', '[]'::jsonb))
+  LOOP
+    INSERT INTO public.training_sections (session_id, user_id, type, name, sort_order)
+    VALUES (v_session_id, v_user_id, sec->>'type', NULLIF(sec->>'name', ''), sec_idx)
+    RETURNING id INTO v_section_id;
+
+    v_score := sec->'score';
+    IF v_score IS NOT NULL AND jsonb_typeof(v_score) = 'object' THEN
+      INSERT INTO public.section_scores (
+        section_id, user_id, sets, weight_kg, reps, final_time,
+        distance_meters, calories, rounds, reps_completed, notes
+      )
+      VALUES (
+        v_section_id,
+        v_user_id,
+        (v_score->>'sets')::integer,
+        (v_score->>'weightKg')::numeric,
+        (v_score->>'reps')::integer,
+        v_score->>'finalTime',
+        (v_score->>'distanceMeters')::numeric,
+        (v_score->>'calories')::numeric,
+        (v_score->>'rounds')::integer,
+        (v_score->>'repsCompleted')::integer,
+        NULLIF(v_score->>'notes', '')
+      );
+    END IF;
+
+    ex_idx := 0;
+    FOR v_exercise_name IN SELECT * FROM jsonb_array_elements_text(COALESCE(sec->'exercises', '[]'::jsonb))
+    LOOP
+      INSERT INTO public.section_exercises (section_id, user_id, name, sort_order)
+      VALUES (v_section_id, v_user_id, v_exercise_name, ex_idx)
+      RETURNING id INTO v_exercise_id;
+
+      v_sets := (v_score->>'sets')::integer;
+      IF v_sets IS NOT NULL AND v_sets > 0 THEN
+        INSERT INTO public.exercise_sets (exercise_id, user_id, set_number, weight_kg, reps)
+        SELECT
+          v_exercise_id,
+          v_user_id,
+          s,
+          (v_score->>'weightKg')::numeric,
+          (v_score->>'reps')::integer
+        FROM generate_series(1, v_sets) AS s;
+      END IF;
+
+      ex_idx := ex_idx + 1;
+    END LOOP;
+
+    sec_idx := sec_idx + 1;
+  END LOOP;
+END;
+$$;

@@ -48,40 +48,26 @@ export class SupabaseMealRepository implements MealRepository {
   async addMealLog(log: MealLog): Promise<void> {
     const supabase = this.authService.getSupabaseClient();
     const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
+    if (!supabase || !userId) throw new Error('No active session to save meal log');
 
-    try {
-      await supabase
-        .from('meal_logs')
-        .upsert({
-          id: log.id,
-          user_id: userId,
-          date: log.date,
-          meal_type: log.mealType,
-          description: log.description,
-          calories: log.calories || null,
-          protein_g: log.proteinG || null,
-          carbs_g: log.carbsG || null,
-          fat_g: log.fatG || null,
-          created_at: log.createdAt
-        });
-    } catch (err) {
-      console.error('Exception in SupabaseMealRepository.addMealLog:', err);
-    }
-  }
+    const { error } = await supabase
+      .from('meal_logs')
+      .upsert({
+        id: log.id,
+        user_id: userId,
+        date: log.date,
+        meal_type: log.mealType,
+        description: log.description,
+        calories: log.calories || null,
+        protein_g: log.proteinG || null,
+        carbs_g: log.carbsG || null,
+        fat_g: log.fatG || null,
+        created_at: log.createdAt
+      });
 
-  async clearMealLogs(): Promise<void> {
-    const supabase = this.authService.getSupabaseClient();
-    const userId = this.authService.currentUser()?.id;
-    if (!supabase || !userId) return;
-
-    try {
-      await supabase
-        .from('meal_logs')
-        .delete()
-        .eq('user_id', userId);
-    } catch (err) {
-      console.error('Exception in SupabaseMealRepository.clearMealLogs:', err);
+    if (error) {
+      console.error('Error saving meal log in Supabase:', error);
+      throw error;
     }
   }
 }

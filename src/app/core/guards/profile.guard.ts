@@ -4,6 +4,9 @@ import { StorageService } from '../services/storage.service';
 import { STORAGE_KEYS } from '../constants';
 import { UserProfile } from '../models';
 
+// The app is offline-first: anonymous usage with a local profile is a
+// supported flow, so routes are gated by "has a profile", not by auth.
+// Access control over remote data is enforced by Supabase RLS, not the router.
 export const profileGuard: CanActivateFn = (route, state) => {
   const router = inject(Router);
   const storage = inject(StorageService);

@@ -3,6 +3,7 @@ import { Workout } from '../models';
 import { TrainingRepository } from '../repositories/training.repository';
 import { LocalMigrationService } from './local-migration.service';
 import { AuthService } from './auth.service';
+import { parseLocalDate } from '../utils/date-utils';
 
 @Injectable({
   providedIn: 'root'
@@ -21,11 +22,12 @@ export class WorkoutService {
     const today = new Date();
     const day = today.getDay();
     const diff = today.getDate() - day + (day === 0 ? -6 : 1);
-    const startOfWeek = new Date(today.setDate(diff));
-    startOfWeek.setHours(0, 0, 0, 0);
+    const startOfWeek = new Date(today.getFullYear(), today.getMonth(), diff);
 
     return this.workoutsSignal().filter(workout => {
-      const workoutDate = new Date(workout.date);
+      // Parse as local midnight; new Date('YYYY-MM-DD') would parse as UTC
+      // and shift the workout to the previous local day west of UTC.
+      const workoutDate = parseLocalDate(workout.date);
       return workoutDate >= startOfWeek;
     });
   });
@@ -73,6 +75,7 @@ export class WorkoutService {
       });
     } catch (err) {
       console.error('Error saving workout in WorkoutService:', err);
+      throw err;
     }
   }
 
