@@ -1,6 +1,7 @@
 import { Injectable } from '@angular/core';
 import { Workout, TrainingSection, SectionScore } from '../models';
 import { SectionType } from '../enums';
+import { parseTimeToSeconds } from '../utils/time-utils';
 
 export interface PersonalRecord {
   exerciseName: string;
@@ -99,7 +100,7 @@ export class PersonalRecordService {
 
         // Check time PR (lower is better, only if metricType is time)
         if (score.finalTime) {
-          const seconds = this.timeToSeconds(score.finalTime);
+          const seconds = parseTimeToSeconds(score.finalTime);
           if (seconds > 0) {
             const previousBest = this.getPreviousBest(history, wodName, 'time');
 
@@ -248,7 +249,7 @@ export class PersonalRecordService {
 
         if (w.name.trim().toLowerCase() === name.toLowerCase() && isWodType) {
           if (type === 'time' && score.finalTime) {
-            const secs = this.timeToSeconds(score.finalTime);
+            const secs = parseTimeToSeconds(score.finalTime);
             if (secs > 0) {
               if (bestValue === null || secs < bestValue) { // For time, lower is better
                 bestValue = secs;
@@ -279,17 +280,5 @@ export class PersonalRecordService {
     });
 
     return bestValue;
-  }
-
-  private timeToSeconds(timeStr: string): number {
-    const parts = timeStr.split(':');
-    if (parts.length === 2) {
-      const min = parseInt(parts[0], 10);
-      const sec = parseInt(parts[1], 10);
-      if (!isNaN(min) && !isNaN(sec)) {
-        return min * 60 + sec;
-      }
-    }
-    return 0;
   }
 }

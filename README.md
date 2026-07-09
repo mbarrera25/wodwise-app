@@ -2,6 +2,8 @@
 
 This project was generated using [Angular CLI](https://github.com/angular/angular-cli) version 19.2.27.
 
+> Para arquitectura, setup con Supabase y convenciones del proyecto, ver la [Guía para desarrolladores](docs/DEVELOPER_GUIDE.md).
+
 ## Development server
 
 To start a local development server, run:
